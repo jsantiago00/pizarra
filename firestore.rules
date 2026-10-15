@@ -1,0 +1,143 @@
+rules_version = '2';
+
+// Pizarra: salas compartidas por código. No hay cuentas: cada navegador entra como usuario
+// anónimo de Firebase, así que request.auth.uid identifica al dispositivo.
+//
+// rooms/{code}            título, permisos (editMode, editors, banned) y orden de páginas
+//   secret/admin          la clave de administración: nadie la puede leer
+//   admins/{uid}          quienes administran: se crea solo con la clave correcta
+//   members/{uid}         nombre y última vez visto
+//   pages/{pageId}        fondo de cada hoja
+//     strokes/{strokeId}  un documento por trazo
+//
+// Para escribir se usan getAfter/existsAfter: así la sala, su primera página y quien la
+// crea entran en un mismo lote (antes del lote la sala todavía no existe).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomPath(code) {
+      return /databases/$(database)/documents/rooms/$(code);
+    }
+
+    function adminPath(code) {
+      return /databases/$(database)/documents/rooms/$(code)/admins/$(request.auth.uid);
+    }
+
+    // ---- Lecturas (estado actual) ----
+
+    function banned(code) {
+      return get(roomPath(code)).data.banned.get(request.auth.uid, false) == true;
+    }
+
+    function canRead(code) {
+      return signedIn() && !banned(code);
+    }
+
+    // ---- Escrituras (estado después del lote) ----
+
+    function isAdminAfter(code) {
+      return existsAfter(adminPath(code));
+    }
+
+    function canDraw(code) {
+      let room = getAfter(roomPath(code)).data;
+      return signedIn() && (
+        isAdminAfter(code) ||
+        (room.banned.get(request.auth.uid, false) != true &&
+          (room.editMode == 'all' || room.editors.get(request.auth.uid, false) == true))
+      );
+    }
+
+    function validRoom(d) {
+      return d.keys().hasOnly(['title', 'editMode', 'editors', 'banned', 'pageIds', 'createdAt', 'updatedAt'])
+        && d.title is string && d.title.size() <= 120
+        && d.editMode in ['all', 'some']
+        && d.editors is map && d.banned is map
+        && d.pageIds is list && d.pageIds.size() <= 300;
+    }
+
+    match /rooms/{code} {
+      // Se puede abrir una sala sabiendo el código, pero no listarlas
+      allow get: if signedIn() && (resource == null || resource.data.banned.get(request.auth.uid, false) != true);
+      allow list: if false;
+
+      allow create: if signedIn()
+        && code.matches('^[A-HJKMNP-Z2-9]{6}$')
+        && validRoom(request.resource.data)
+        && request.resource.data.editors.size() == 0
+        && request.resource.data.banned.size() == 0
+        && isAdminAfter(code);
+
+      allow update: if signedIn() && validRoom(request.resource.data) && (
+        // Quien administra cambia título y permisos
+        isAdminAfter(code) ||
+        // Quien puede dibujar puede agregar, borrar u ordenar páginas, nada más
+        (canDraw(code) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pageIds', 'updatedAt']))
+      );
+
+      allow delete: if signedIn() && isAdminAfter(code);
+
+      match /secret/{doc} {
+        allow read: if false;
+        // Solo junto con la sala, en el mismo lote en que se crea
+        allow create: if signedIn()
+          && doc == 'admin'
+          && !exists(roomPath(code))
+          && existsAfter(roomPath(code))
+          && request.resource.data.keys().hasOnly(['key'])
+          && request.resource.data.key is string
+          && request.resource.data.key.size() >= 20;
+        allow delete: if signedIn() && isAdminAfter(code);
+      }
+
+      match /admins/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        // Con la clave correcta (la del enlace de administración)
+        allow create: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['key'])
+          && request.resource.data.key == getAfter(/databases/$(database)/documents/rooms/$(code)/secret/admin).data.key;
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+
+      match /members/{uid} {
+        allow read: if canRead(code);
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && getAfter(roomPath(code)).data.banned.get(uid, false) != true
+          && request.resource.data.keys().hasOnly(['name', 'admin', 'joinedAt', 'lastSeen'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 40
+          && request.resource.data.admin == isAdminAfter(code);
+        // Cada uno se va; quien administra puede sacar a cualquiera
+        allow delete: if signedIn() && (request.auth.uid == uid || isAdminAfter(code));
+      }
+
+      match /pages/{pageId} {
+        allow read: if canRead(code);
+        allow create, update: if canDraw(code)
+          && request.resource.data.keys().hasOnly(['width', 'height', 'background', 'createdAt', 'updatedAt'])
+          && request.resource.data.background is map;
+        allow delete: if canDraw(code);
+
+        match /strokes/{strokeId} {
+          allow read: if canRead(code);
+          allow create, update: if canDraw(code)
+            && request.resource.data.keys().hasOnly(['tool', 'color', 'size', 'opacity', 'pts', 'n', 'bbox', 'z', 'simulated', 'shape', 'createdAt', 'by'])
+            && request.resource.data.by == request.auth.uid
+            && request.resource.data.pts is bytes
+            && request.resource.data.pts.size() <= 200000;
+          allow delete: if canDraw(code);
+        }
+      }
+    }
+
+    // Todo lo demás, cerrado.
+  }
+}
