@@ -14,8 +14,8 @@
     "test:watch": "vitest",
     "icons": "pwa-assets-generator",
     "dev:emu": "vite --mode emu",
-    "emulators": "firebase emulators:start --only auth,firestore --project demo-pizarra",
-    "test:rules": "firebase emulators:exec --only auth,firestore --project demo-pizarra \"node scripts/test-rules.mjs\""
+    "emulators": "firebase emulators:start --only auth,firestore,database --project demo-pizarra",
+    "test:rules": "firebase emulators:exec --only auth,firestore,database --project demo-pizarra \"node scripts/test-rules.mjs\""
   },
   "dependencies": {
     "firebase": "^13.0.0",

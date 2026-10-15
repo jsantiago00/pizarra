@@ -32,6 +32,8 @@ export interface RoomMeta {
   editors: Record<string, true>
   /** Personas expulsadas: no pueden dibujar ni volver a entrar */
   banned: Record<string, true>
+  /** Todos siguen la vista de esta persona («seguir mi vista»), o null */
+  follow: string | null
   pageIds: string[]
   createdAt: number
   updatedAt: number
@@ -90,6 +92,7 @@ export function toRoomMeta(code: string, d: DocumentData): RoomMeta {
     editMode: d.editMode === 'some' ? 'some' : 'all',
     editors: flags(d.editors),
     banned: flags(d.banned),
+    follow: typeof d.follow === 'string' ? d.follow : null,
     pageIds: Array.isArray(d.pageIds) ? d.pageIds : [],
     createdAt: millis(d.createdAt),
     updatedAt: millis(d.updatedAt),
@@ -265,6 +268,11 @@ export function setEditMode(code: string, editMode: EditMode) {
 
 export function setEditor(code: string, uid: string, allowed: boolean) {
   return updateDoc(roomRef(code), { [`editors.${uid}`]: allowed ? true : deleteField(), updatedAt: serverTimestamp() })
+}
+
+/** Que todos sigan mi vista (uid), o dejar de guiar (null). */
+export function setFollow(code: string, uid: string | null) {
+  return updateDoc(roomRef(code), { follow: uid, updatedAt: serverTimestamp() })
 }
 
 export function renameRoom(code: string, title: string) {

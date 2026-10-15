@@ -1,16 +1,18 @@
 # Pizarra
 
-Pizarra online para trabajar, estudiar o dar clases en vivo. Se entra con un **código de sala**, sin crear cuentas. Quien crea la sala decide quién puede dibujar.
+Pizarra online para trabajar, estudiar o dar clases en vivo. Se entra con un **código de sala**, sin crear cuentas. Quien crea la sala decide quién puede dibujar. Quien entra con Google, además, guarda las pizarras en las que participó.
 
 Usa el mismo motor de dibujo que [Notillas](https://github.com/jsantiago00/Notillas): presión del lápiz, rechazo de palma, formas, goma, lazo y exportación.
 
-> **Estado:** etapa 1 (salas, permisos y dibujo en tiempo real). El plan está en [PLAN.md](PLAN.md).
+> **Estado:** etapas 1 (salas y permisos) y 2 (en vivo y cuenta de Google). El plan está en [PLAN.md](PLAN.md).
 
 ## Qué hace
 
 - **Salas con código:** creás una sala y pasás el código (`ABC-234`) o el enlace. Para entrar alcanza con escribir tu nombre.
 - **Permisos:** al crear la sala elegís si dibujan **todos** o **solo vos y a quien habilites**. Desde **Participantes** cambiás eso en cualquier momento, habilitás o deshabilitás a cada persona, o la sacás de la sala.
-- **Tiempo real:** cada trazo aparece en las pantallas de los demás al levantar el lápiz.
+- **En vivo:** los demás ven tu trazo **mientras** lo dibujás, y el puntero de cada uno con su nombre.
+- **Seguir mi vista:** quien administra puede hacer que todos vean lo mismo que ve en su pantalla (la parte de la hoja y el zoom). Cada uno puede dejar de seguir esa vista moviendo la hoja, y volver con un toque.
+- **Con Google o sin cuenta:** sin cuenta no se guarda nada. Con Google, cada sala en la que participás se guarda sola en **Mis pizarras** (al salir, al cerrar la pestaña y cada dos minutos): una copia para repasar y exportar a PDF aunque la sala cambie o se borre.
 - **Varios dispositivos tuyos:** el **enlace de administración** (en **Invitar**) te deja administrar la sala desde otro dispositivo, por ejemplo la tablet y la compu.
 - **Lo de Notillas:** lapicera con presión, resaltador, goma por trazo o por área (también con el botón del S Pen), lazo, formas (dejá el lápiz quieto medio segundo), deshacer, hojas A4 apiladas lisas, rayadas, cuadriculadas o punteadas, y exportar a PDF o PNG.
 - **Para quien administra:** «Borrar todo lo de esta página», en el menú ⋯. Se puede deshacer.
@@ -40,7 +42,7 @@ Contra el proyecto real: copiá `.env.example` como `.env`, completalo y corré 
 | `npm run dev:emu` | Servidor de desarrollo contra los emuladores (usa `.env.emu`). |
 | `npm run dev:lan` | Por HTTPS en tu red local, para el celular o la tablet. |
 | `npm test` | Tests unitarios (Vitest). |
-| `npm run test:rules` | Prueba las reglas de Firestore en el emulador. |
+| `npm run test:rules` | Prueba las reglas de Firestore y Realtime Database en el emulador. |
 | `npm run typecheck` / `npm run lint` | TypeScript y ESLint. |
 | `npm run build` | Build de producción en `dist/`, con el service worker. |
 | `npm run icons` | Regenera los íconos a partir de `public/logo.svg`. |
@@ -59,11 +61,14 @@ La app queda en `https://<usuario>.github.io/pizarra/`, o en tu dominio propio s
 ## Cómo se guardan las salas
 
 ```
-rooms/{código}              título, quién puede dibujar, personas sacadas, orden de las páginas
+rooms/{código}              título, quién puede dibujar, personas sacadas, a quién se sigue, orden de las páginas
   secret/admin              la clave del enlace de administración (nadie la puede leer)
   admins/{uid}              quienes administran
   members/{uid}             nombre y última vez visto (para la lista de participantes)
   pages/{id}/strokes/{id}   un documento por trazo, con los puntos comprimidos en bytes
+users/{uid}/boards/{código} la copia de «Mis pizarras» (con Google), con los trazos en pocos documentos grandes
 ```
 
-Cada navegador es un usuario anónimo de Firebase. Las salas en las que estuviste y tu nombre quedan guardados en ese dispositivo.
+Y en Realtime Database, lo efímero: `live/{código}/{uid}` con el puntero, lo que se ve y el trazo en curso. Se borra solo al desconectarse.
+
+Sin cuenta, cada navegador es un usuario anónimo de Firebase. Al entrar con Google, ese usuario anónimo se convierte en tu cuenta: seguís siendo la misma persona en las salas (y seguís administrando las tuyas). Las salas recientes y tu nombre quedan guardados en el dispositivo.

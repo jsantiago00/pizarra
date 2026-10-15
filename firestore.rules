@@ -3,12 +3,14 @@ rules_version = '2';
 // Pizarra: salas compartidas por código. No hay cuentas: cada navegador entra como usuario
 // anónimo de Firebase, así que request.auth.uid identifica al dispositivo.
 //
-// rooms/{code}            título, permisos (editMode, editors, banned) y orden de páginas
+// rooms/{code}            título, permisos (editMode, editors, banned), a quién se sigue (follow)
+//                         y orden de páginas
 //   secret/admin          la clave de administración: nadie la puede leer
 //   admins/{uid}          quienes administran: se crea solo con la clave correcta
 //   members/{uid}         nombre y última vez visto
 //   pages/{pageId}        fondo de cada hoja
 //     strokes/{strokeId}  un documento por trazo
+// users/{uid}/boards/…    las copias guardadas de quien entró con Google («Mis pizarras»)
 //
 // Para escribir se usan getAfter/existsAfter: así la sala, su primera página y quien la
 // crea entran en un mismo lote (antes del lote la sala todavía no existe).
@@ -54,11 +56,13 @@ service cloud.firestore {
     }
 
     function validRoom(d) {
-      return d.keys().hasOnly(['title', 'editMode', 'editors', 'banned', 'pageIds', 'createdAt', 'updatedAt'])
+      return d.keys().hasOnly(['title', 'editMode', 'editors', 'banned', 'pageIds', 'follow', 'createdAt', 'updatedAt'])
         && d.title is string && d.title.size() <= 120
         && d.editMode in ['all', 'some']
         && d.editors is map && d.banned is map
-        && d.pageIds is list && d.pageIds.size() <= 300;
+        && d.pageIds is list && d.pageIds.size() <= 300
+        // follow: a quién siguen todos («seguir mi vista»), o nadie
+        && (!('follow' in d) || d.follow == null || d.follow is string);
     }
 
     match /rooms/{code} {
@@ -136,6 +140,11 @@ service cloud.firestore {
           allow delete: if canDraw(code);
         }
       }
+    }
+
+    // «Mis pizarras»: las copias guardadas de cada persona, solo para ella.
+    match /users/{uid}/{document=**} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
     }
 
     // Todo lo demás, cerrado.

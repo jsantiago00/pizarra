@@ -1,18 +1,18 @@
 # Pizarra: guía para trabajar en el proyecto
 
-**Pizarra** es una pizarra online compartida por código de sala, sin cuentas: Vite, React 19, TypeScript, Canvas, perfect-freehand y Firebase (Auth anónima y Firestore). El motor de dibujo viene de **Notillas** (`jsantiago00/Notillas`). Toda la interfaz está en español rioplatense (voseo).
+**Pizarra** es una pizarra online compartida por código de sala: Vite, React 19, TypeScript, Canvas, perfect-freehand y Firebase (Auth anónima o con Google, Firestore y Realtime Database). El motor de dibujo viene de **Notillas** (`jsantiago00/Notillas`). Toda la interfaz está en español rioplatense (voseo).
 
 - **Plan** (decisiones, modelo de datos y etapas): [PLAN.md](PLAN.md). Leelo primero.
 - **Cómo correr, probar y publicar:** [README.md](README.md). **Configurar Firebase:** [docs/FIREBASE.md](docs/FIREBASE.md).
 - **Repo:** `jsantiago00/pizarra`. Se publica en GitHub Pages con `.github/workflows/pages.yml` en cada push a `main` (`https://santiagososa.com.ar/pizarra/`).
-- **Firebase:** un proyecto propio, **no** el de Notillas (cada proyecto tiene un solo archivo de reglas). La configuración va en las variables de Actions `VITE_FIREBASE_*` y, en local, en `.env`.
+- **Firebase:** un proyecto propio, **no** el de Notillas (cada proyecto tiene un solo archivo de reglas). La configuración va en las variables de Actions `VITE_FIREBASE_*` y, en local, en `.env`. `VITE_FIREBASE_DATABASE_URL` es opcional (por defecto, la de us-central1).
 
 ## Estado
 
 | Etapa | Estado |
 |---|---|
-| 1. Salas y permisos | ✅ Hecha (a confirmar por el usuario) |
-| 2. En vivo: trazo en curso, punteros, seguir la vista | Pendiente |
+| 1. Salas y permisos | ✅ Hecha |
+| 2. En vivo (trazo en curso, punteros, seguir la vista) y cuenta de Google con «Mis pizarras» | ✅ Hecha (a confirmar en la tablet) |
 | 3. Herramientas de clase | Pendiente |
 | 4. Gestión de salas | Pendiente |
 
@@ -21,13 +21,18 @@ Actualizá esta tabla en el mismo commit que cierra cada etapa.
 ## Cómo trabajar (acordado con el usuario en Notillas)
 
 - **Una etapa por vez.** Al terminar cada una, explicá cómo probarla (en la compu, el celular y la tablet) y **esperá su confirmación** antes de seguir.
-- **Antes de commitear,** todo en verde: `npx tsc -b && npx eslint . && npx vitest run && npx vite build`. Si tocaste `firestore.rules`, también `npm run test:rules`.
+- **Antes de commitear,** todo en verde: `npx tsc -b && npx eslint . && npx vitest run && npx vite build`. Si tocaste `firestore.rules` o `database.rules.json`, también `npm run test:rules`.
+- **En este entorno** la CLI de Firebase manda por el proxy hasta los pedidos a `localhost`, y el emulador de Realtime Database no carga las reglas: corré los emuladores con `HTTPS_PROXY= https_proxy= npm run test:rules` (o `… npx firebase emulators:start …`). No salen a internet.
+- **Push:** el usuario prueba sobre lo publicado, así que pusheá a `main` (además de la rama de la sesión).
 - **Commits:** autor `juansantiagososa00 <juansantiagososa00@gmail.com>`, mensaje en español.
 - **Dispositivos del usuario:** una tablet Android con S Pen (Chrome) y el celular. Probá con Playwright: Chromium está en `/opt/pw-browsers` y playwright en `/opt/node-tools/node_modules/playwright`. Emulá una tablet de 1280×800 y de 800×1280, y un celular de 390×780. Para probar la sala, usá **dos contextos de navegador** (dos personas) contra los emuladores.
 
 ## Decisiones ya tomadas (no las vuelvas a discutir)
 
-- **Sin cuentas:** Auth anónima automática (`src/firebase/auth.ts`). El nombre y las salas recientes están en `localStorage` (`src/lib/localRooms.ts`).
+- **Cuentas:** anónima automática por defecto; Google opcional con `linkWithPopup` (conserva el uid). Si la cuenta ya existía, `signInWithCredential` y la administración se recupera con las claves de `localStorage`. Sin cuenta no se guarda nada. Todo en `src/firebase/auth.ts`; en los emuladores, `window.__pizarraAuth.signInForTests(sub, email, nombre)`.
+- **«Mis pizarras»:** copia por sala en `users/{uid}/boards/{code}` (`src/firebase/library.ts`, `BoardSaver`): al salir, en `visibilitychange: hidden` y cada 2 min si cambió algo.
+- **En vivo** por Realtime Database (`src/firebase/live.ts`, `src/ui/useRoomLive.ts`): el `Board` avisa con `onLive`, `onCursor`, `onView` y `onUserView`, y recibe `setRemote` y `showRect`. Si la base no existe, la sala anda igual sin esto.
+- **Seguir la vista:** `follow` (uid) en el documento de la sala, solo lo cambia quien administra. Quien sigue deja de seguir al mover la hoja (`onUserView`).
 - **Administración:** `rooms/{code}/admins/{uid}` existe si administrás. Se crea con la clave de `secret/admin`, que nadie puede leer. El enlace es `/sala/CODIGO#admin=clave`; la clave se guarda en `localStorage` del dispositivo que la tiene.
 - **Permisos en el documento de la sala:** `editMode` (`all`/`some`), `editors`, `banned`. `canEdit()` en `rooms.ts` replica en el cliente lo que dicen las reglas.
 - **Solo mirar:** `NoteEditor` con `readOnly` esconde las herramientas, y `Board` (opción `canEdit`) no dibuja: el lápiz y el dedo desplazan la hoja.
@@ -41,21 +46,23 @@ Actualizá esta tabla en el mismo commit que cierra cada etapa.
 
 ```
 src/
-  firebase/   app.ts, auth.ts (anónima), db.ts (Firestore offline), rooms.ts (rutas, salas, miembros, permisos),
-              roomSync.ts (sala abierta ⇄ Firestore), syncStatus.ts
-  lib/        roomCode.ts (+test: códigos), localRooms.ts (nombre y salas recientes), errors.ts, time.ts (+test),
+  firebase/   app.ts, auth.ts (anónima o Google), db.ts (Firestore offline), rooms.ts (rutas, salas, miembros, permisos),
+              roomSync.ts (sala abierta ⇄ Firestore), live.ts (Realtime Database: en vivo), library.ts («Mis pizarras»),
+              syncStatus.ts
+  lib/        roomCode.ts (+test: códigos), localRooms.ts (nombre y salas recientes), people.ts (color e iniciales), errors.ts, time.ts (+test),
               theme.ts, assets.ts, inputPrefs.ts, toolPrefs.ts, layoutMode.ts
   model/      types.ts, geometry.ts (+test), background.ts (+test), history.ts, note.ts (+test), pages.ts, codec.ts (+test)
   canvas/     Board.ts (motor; opción canEdit y clearPage), Viewport.ts (+test), InputController.ts, palm.ts (+test),
               Renderer.ts, strokeOutline.ts, layout.ts, backgrounds.ts (+test), renderPage.ts
   recognition/ reconocimiento de formas (+test)
   export/     exporters.ts (+test)
-  ui/         Home (nombre, crear, entrar, recientes), RoomRoute (sala: nombre, administración, presencia),
+  ui/         Home (nombre, crear, entrar, «Mis pizarras», recientes), RoomRoute (sala: nombre, administración, guardado),
+              useRoomLive (en vivo y seguir la vista), SavedRoute (una copia guardada), AccountButton (Google),
               Participants (lista y permisos), ShareDialog (código, enlace, enlace de administración),
               NoteEditor (readOnly, headerExtra, banner), Toolbar, SelectionBar, BackgroundPanel, ExportDialog, Dialog,
               SyncBadge, Splash, SetupMissing, ThemeButton, UpdatePrompt, Icon
-  App.tsx     rutas (/, /sala/:code) y conexión anónima
+  App.tsx     rutas (/, /sala/:code, /guardada/:code) y conexión
 scripts/test-rules.mjs       pruebas de las reglas (npm run test:rules)
-firestore.rules, firestore.indexes.json, firebase.json, .env.emu
+firestore.rules, database.rules.json, firestore.indexes.json, firebase.json, .env.emu
 .github/workflows/pages.yml
 ```

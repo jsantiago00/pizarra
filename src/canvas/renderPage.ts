@@ -37,3 +37,10 @@ export function renderPage(page: Page, { scale, background }: RenderOptions): HT
   ctx.globalAlpha = 1
   return canvas
 }
+
+/** Miniatura chica de una página, como data URL WebP (unos 5–20 KB). */
+export function thumbnail(page: Page, width = 240): string {
+  const c = renderPage(page, { scale: width / page.width, background: true })
+  // Safari viejo no codifica WebP y devuelve PNG: igual sirve
+  return c.toDataURL('image/webp', 0.7)
+}

@@ -9,6 +9,9 @@ export const firebaseConfig = {
   storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: env.VITE_FIREBASE_APP_ID,
+  // Realtime Database (lo en vivo). Si no se indica, la de us-central1, que es la que Firebase
+  // propone por defecto al crearla
+  databaseURL: env.VITE_FIREBASE_DATABASE_URL || (env.VITE_FIREBASE_PROJECT_ID ? `https://${env.VITE_FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com` : undefined),
 }
 
 /** Sin .env la app muestra cómo configurarla en vez de romperse. */

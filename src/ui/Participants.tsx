@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { banMember, setEditMode, setEditor, unbanMember, type Member, type RoomMeta } from '../firebase/rooms'
 import { ConfirmDialog } from './Dialog'
 import { Icon } from './Icon'
+import { colorFor, initials } from '../lib/people'
 
 /** Sin «sigo acá» en este tiempo, se considera desconectado. */
 const ONLINE_MS = 100_000
@@ -15,14 +16,15 @@ interface Props {
   members: Member[]
   me: string
   admin: boolean
-  now: number
+  /** Quiénes están conectados ahora */
+  online: Set<string>
   onClose: () => void
 }
 
 /** Panel lateral: quién está en la sala y, para quien administra, quién puede dibujar. */
-export function Participants({ room, members, me, admin, now, onClose }: Props) {
+export function Participants({ room, members, me, admin, online, onClose }: Props) {
   const [kick, setKick] = useState<Member | null>(null)
-  const sorted = [...members].sort((a, b) => Number(isOnline(b, now)) - Number(isOnline(a, now)))
+  const sorted = [...members].sort((a, b) => Number(online.has(b.uid)) - Number(online.has(a.uid)))
   const bannedIds = Object.keys(room.banned)
   const fail = (e: unknown) => console.error('No se pudo cambiar el permiso:', e)
 
@@ -56,7 +58,7 @@ export function Participants({ room, members, me, admin, now, onClose }: Props) 
 
         <ul className="people">
           {sorted.map((m) => {
-            const on = isOnline(m, now)
+            const on = online.has(m.uid)
             const draws = m.admin || room.editMode === 'all' || room.editors[m.uid] === true
             return (
               <li key={m.uid} className={on ? 'is-online' : ''}>
@@ -118,19 +120,4 @@ export function Participants({ room, members, me, admin, now, onClose }: Props) 
       )}
     </div>
   )
-}
-
-function initials(name: string): string {
-  const parts = name
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
-    .trim()
-    .split(/\s+/)
-  return ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase()
-}
-
-/** Un color estable por persona. */
-function colorFor(uid: string): string {
-  let h = 0
-  for (const c of uid) h = (h * 31 + c.charCodeAt(0)) % 360
-  return `hsl(${h} 55% 45%)`
 }

@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../firebase/auth'
+import { watchBoards, type SavedBoard } from '../firebase/library'
 import { createRoom, roomExists, type EditMode } from '../firebase/rooms'
 import { LOGO } from '../lib/assets'
 import { friendlyError } from '../lib/errors'
@@ -9,12 +10,23 @@ import { formatCode, parseCode } from '../lib/roomCode'
 import { relativeTime } from '../lib/time'
 import { readLastBackground } from '../model/background'
 import { Icon } from './Icon'
+import { AccountButton } from './AccountButton'
 import { ThemeButton } from './ThemeButton'
 
 /** Inicio: tu nombre, crear una sala, entrar con un código y las salas recientes. */
 export function Home() {
   const uid = useAuth((s) => s.uid)
+  const account = useAuth((s) => s.account)
+  const loginError = useAuth((s) => s.loginError)
   const name = useLocal((s) => s.name)
+  const [boards, setBoards] = useState<SavedBoard[] | null>(null)
+
+  // Con cuenta de Google: «Mis pizarras», y tu nombre de Google si todavía no pusiste uno
+  useEffect(() => {
+    if (!account || !uid) return setBoards(null)
+    if (!useLocal.getState().name.trim()) setName(account.name)
+    return watchBoards(uid, setBoards, () => setBoards([]))
+  }, [account, uid])
   const rooms = useLocal((s) => s.rooms)
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
@@ -76,11 +88,19 @@ export function Home() {
           <img src={LOGO} alt="" width={36} height={36} />
           <span>Pizarra</span>
         </div>
-        <ThemeButton />
+        <div className="home-top-actions">
+          <ThemeButton />
+          <AccountButton />
+        </div>
       </header>
+      {loginError && (
+        <p className="error home-login-error" role="alert">
+          {loginError}
+        </p>
+      )}
 
       <main className="home-main">
-        <p className="home-lead">Una pizarra compartida para trabajar, estudiar o dar clases en vivo. Sin cuentas: alcanza con el código de la sala.</p>
+        <p className="home-lead">Una pizarra compartida para trabajar, estudiar o dar clases en vivo. No hace falta cuenta: alcanza con el código de la sala.</p>
 
         <label className="field name-field">
           <span>Tu nombre</span>
@@ -175,6 +195,37 @@ export function Home() {
             </button>
           </form>
         </div>
+
+        {account ? (
+          <section className="boards">
+            <h2>Mis pizarras</h2>
+            {boards === null ? null : boards.length === 0 ? (
+              <p className="muted">Todavía no hay ninguna. Las salas en las que participes se guardan acá solas, para repasarlas cuando quieras.</p>
+            ) : (
+              <ul className="board-grid">
+                {boards.map((b) => (
+                  <li key={b.code}>
+                    <Link to={`/guardada/${b.code}`} className="board-card">
+                      <span className="board-thumb">{b.thumb ? <img src={b.thumb} alt="" /> : null}</span>
+                      <span className="board-info">
+                        <strong>{b.title || `Sala ${formatCode(b.code)}`}</strong>
+                        <small className="muted">
+                          {relativeTime(b.savedAt)}
+                          {b.pageCount > 1 ? ` · ${b.pageCount} páginas` : ''}
+                        </small>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : (
+          <p className="muted home-hint">
+            <Icon name="info" size={16} /> Si entrás con Google, las pizarras en las que participes se guardan en «Mis pizarras» para repasarlas después.
+            Sin cuenta no se guarda nada.
+          </p>
+        )}
 
         {rooms.length > 0 && (
           <section className="recent">

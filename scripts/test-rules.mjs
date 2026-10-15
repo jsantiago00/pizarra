@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict'
 import { deleteApp, initializeApp } from 'firebase/app'
 import { connectAuthEmulator, getAuth, signInAnonymously } from 'firebase/auth'
+import { connectDatabaseEmulator, getDatabase, ref, set as rtSet, get as rtGet } from 'firebase/database'
 import {
   Bytes,
   connectFirestoreEmulator,
@@ -23,7 +24,13 @@ import {
 // Los rechazos esperados no ensucian la salida
 setLogLevel('silent')
 
-const config = { apiKey: 'demo-key', projectId: 'demo-pizarra', appId: '1:0:web:0', authDomain: 'demo-pizarra.firebaseapp.com' }
+const config = {
+  apiKey: 'demo-key',
+  projectId: 'demo-pizarra',
+  appId: '1:0:web:0',
+  authDomain: 'demo-pizarra.firebaseapp.com',
+  databaseURL: 'https://demo-pizarra-default-rtdb.firebaseio.com',
+}
 const apps = []
 
 async function user(name) {
@@ -34,7 +41,9 @@ async function user(name) {
   const { user } = await signInAnonymously(auth)
   const db = initializeFirestore(app, {})
   connectFirestoreEmulator(db, '127.0.0.1', 8080)
-  return { uid: user.uid, db }
+  const rtdb = getDatabase(app)
+  connectDatabaseEmulator(rtdb, '127.0.0.1', 9000)
+  return { uid: user.uid, db, rtdb }
 }
 
 const KEY = 'clave-de-administracion-larga-123'
@@ -71,7 +80,8 @@ const ok = (p, what) => p.then(() => {}, (e) => assert.fail(`${what}: debería p
 const denied = (p, what) =>
   p.then(
     () => assert.fail(`${what}: no debería poder`),
-    (e) => assert.equal(e.code, 'permission-denied', `${what}: ${e.message}`),
+    // Firestore dice «permission-denied»; Realtime Database, «PERMISSION_DENIED»
+    (e) => assert.match(String(e.code ?? e.message), /permission[-_ ]denied/i, `${what}: ${e.message}`),
   )
 
 let passed = 0
@@ -169,6 +179,29 @@ await test('quien fue sacado no abre la sala, no lee ni dibuja ni vuelve a entra
   )
 })
 await test('los demás siguen leyendo', () => ok(getDocs(collection(alumno.db, 'rooms', 'ABC234', 'pages', 'p1', 'strokes')), 'leer trazos'))
+
+await test('quien administra pide que todos sigan su vista; quien dibuja no', async () => {
+  await ok(updateDoc(doc(profe.db, 'rooms', 'ABC234'), { follow: profe.uid }), 'guiar')
+  await ok(updateDoc(doc(profe.db, 'rooms', 'ABC234'), { [`editors.${alumno.uid}`]: true }), 'habilitar')
+  await denied(updateDoc(doc(alumno.db, 'rooms', 'ABC234'), { follow: alumno.uid }), 'guiar sin administrar')
+})
+
+await test('«Mis pizarras»: cada uno guarda y lee solo las suyas', async () => {
+  const mine = doc(alumno.db, 'users', alumno.uid, 'boards', 'ABC234')
+  await ok(setDoc(mine, { code: 'ABC234', title: 'Mate', savedAt: serverTimestamp(), pages: [], chunkIds: [] }), 'guardar la propia')
+  await ok(setDoc(doc(mine, 'chunks', '0-0'), { page: 0, strokes: [] }), 'guardar un pedazo')
+  await denied(getDoc(doc(profe.db, 'users', alumno.uid, 'boards', 'ABC234')), 'leer la de otro')
+  await denied(setDoc(doc(profe.db, 'users', alumno.uid, 'boards', 'XYZ234'), { title: 'x' }), 'escribir en la de otro')
+})
+
+await test('en vivo: cada uno escribe solo lo suyo y lee la sala', async () => {
+  await ok(rtSet(ref(alumno.rtdb, `live/ABC234/${alumno.uid}`), { n: 'Juli', c: '#123456', cur: { x: 1, y: 2 } }), 'escribir lo propio')
+  await denied(rtSet(ref(alumno.rtdb, `live/ABC234/${profe.uid}`), { n: 'Falsa', c: '#000' }), 'escribir lo de otro')
+  await denied(rtSet(ref(alumno.rtdb, `live/ABC234/${alumno.uid}`), { n: 'Juli', c: '#123456', hack: 1 }), 'campos desconocidos')
+  const snap = await rtGet(ref(profe.rtdb, 'live/ABC234'))
+  assert.equal(snap.child(alumno.uid).child('n').val(), 'Juli')
+  await denied(rtGet(ref(profe.rtdb, 'live')), 'listar todas las salas en vivo')
+})
 
 console.log(`\n${passed} pruebas pasaron`)
 await Promise.all(apps.map((a) => deleteApp(a)))

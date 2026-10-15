@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Board } from '../canvas/Board'
+import { Board, type BoardOptions } from '../canvas/Board'
 import { shapeRecognizer } from '../recognition/recognizer'
 import type { PointerDebug } from '../canvas/InputController'
 import { dismissPenNotice, notePenSeen, setFingerDraws, useInputPrefs } from '../lib/inputPrefs'
@@ -42,11 +42,13 @@ interface Props {
   headerExtra?: ReactNode
   /** Aviso fijo sobre la hoja (por ejemplo, «Solo podés mirar») */
   banner?: ReactNode
+  /** Más avisos del motor (lo en vivo de la sala); se leen al crear el lienzo */
+  boardOptions?: Partial<BoardOptions>
 }
 
 const TOOL_KEYS: Record<string, ToolId> = { p: 'pen', h: 'highlighter', e: 'eraser', l: 'lasso' }
 
-export function NoteEditor({ note, title, onRename, status, actions = [], onBoard, readOnly = false, canClear = false, headerExtra, banner }: Props) {
+export function NoteEditor({ note, title, onRename, status, actions = [], onBoard, readOnly = false, canClear = false, headerExtra, banner, boardOptions }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const boardRef = useRef<Board | null>(null)
   const mode = useLayoutMode()
@@ -85,6 +87,7 @@ export function NoteEditor({ note, title, onRename, status, actions = [], onBoar
     const root = rootRef.current!
     let lastDebug = 0
     const board = new Board(root, note, {
+      ...boardOptions,
       tools: () => useTools.getState(),
       recognize: shapeRecognizer,
       fingerDraws: () => useInputPrefs.getState().fingerDraws,

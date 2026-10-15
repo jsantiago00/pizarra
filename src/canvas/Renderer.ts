@@ -236,6 +236,12 @@ export class Renderer {
       ctx.strokeStyle = 'rgb(0 0 0 / 0.45)'
       ctx.stroke()
     }
+    if (overlay.cursors) {
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+      ctx.font = '600 12px system-ui, sans-serif'
+      ctx.textBaseline = 'middle'
+      for (const c of overlay.cursors) drawCursor(ctx, (c.x - cam.x) * cam.zoom, (c.y - cam.y) * cam.zoom, c.name, c.color)
+    }
   }
 
   /** Dibuja en coordenadas de la página, recortado a la hoja. */
@@ -255,6 +261,30 @@ export class Renderer {
   get size() {
     return { w: this.w, h: this.h }
   }
+}
+
+/** Puntero de otra persona: una flecha con su color y una etiqueta con el nombre. */
+function drawCursor(ctx: CanvasRenderingContext2D, x: number, y: number, name: string, color: string) {
+  ctx.beginPath()
+  ctx.moveTo(x, y)
+  ctx.lineTo(x + 3.5, y + 15)
+  ctx.lineTo(x + 7, y + 9.5)
+  ctx.lineTo(x + 13.5, y + 9)
+  ctx.closePath()
+  ctx.fillStyle = color
+  ctx.fill()
+  ctx.lineWidth = 1.5
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
+  const label = name.length > 18 ? `${name.slice(0, 17)}…` : name
+  const w = ctx.measureText(label).width + 12
+  const lx = x + 12
+  const ly = y + 16
+  ctx.beginPath()
+  ctx.roundRect(lx, ly, w, 20, 10)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText(label, lx + 6, ly + 10.5)
 }
 
 function fillStroke(ctx: CanvasRenderingContext2D, s: { color: string; opacity: number }, path: Path2D, paper: string) {
@@ -280,6 +310,8 @@ export interface Overlay {
   selection?: { rect: Rect; paper: string; bbox: BBox; strokes: Stroke[]; transform?: SelectionTransform }
   /** Círculo de la goma, en píxeles CSS de pantalla */
   eraser?: { x: number; y: number; r: number }
+  /** Punteros de los demás, en coordenadas del mundo */
+  cursors?: { x: number; y: number; name: string; color: string }[]
 }
 
 /** Tamaño de las manijas de la selección, en píxeles de pantalla. */

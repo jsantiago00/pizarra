@@ -10,6 +10,26 @@ import { HANDLE_PX, Renderer, corners, type LiveStroke, type Overlay, type Selec
 import { outlineOf, pathFromOutline, primeStrokePath, strokePath } from './strokeOutline'
 import { Viewport } from './Viewport'
 
+/** El trazo propio en curso, para mostrarlo en vivo a los demás (puntos en coordenadas de la página). */
+export interface LocalLive {
+  pageId: string
+  tool: InkTool
+  color: string
+  size: number
+  opacity: number
+  simulated: boolean
+  pts: number[]
+  /** Se convirtió en una forma: los puntos ya no crecen al final, se reemplazan */
+  shaped: boolean
+}
+
+/** Lo que están haciendo los demás en este momento. */
+export interface RemoteLive {
+  strokes: Omit<LocalLive, 'shaped'>[]
+  /** Punteros, en coordenadas del mundo */
+  cursors: { x: number; y: number; name: string; color: string }[]
+}
+
 /** Lo que el motor le avisa a la interfaz. */
 export interface BoardOptions {
   fingerDraws: () => boolean
@@ -29,6 +49,14 @@ export interface BoardOptions {
    * etapa 6) o null para dejarlo como está.
    */
   recognize?: Recognizer
+  /** Cambió el trazo propio en curso; al terminar llega null con el id del trazo confirmado (si se confirmó) */
+  onLive?: (live: LocalLive | null, committedId?: string) => void
+  /** El puntero propio, en coordenadas del mundo (null: salió de la hoja) */
+  onCursor?: (pos: { x: number; y: number } | null) => void
+  /** Cambió lo que se ve (en coordenadas del mundo) */
+  onView?: (rect: Rect) => void
+  /** La persona movió la vista (pan, zoom, ajustar): sirve para dejar de seguir a otro */
+  onUserView?: () => void
 }
 
 /** Reconocimiento de formas enchufable (etapa 6). */
@@ -115,6 +143,7 @@ export class Board implements InputSink {
   private lastTotal = 0
   private lastSelKey = ''
   private sized = false
+  private remote: RemoteLive = { strokes: [], cursors: [] }
   private ro: ResizeObserver
   private readonly off: (() => void)[] = []
   private readonly root: HTMLElement
@@ -230,6 +259,22 @@ export class Board implements InputSink {
     this.hidden.clear()
     this.dirtyInk = true
     this.dirtyLive = true
+    this.schedule()
+  }
+
+  /** Lo que dibujan los demás ahora (trazos en curso y punteros). */
+  setRemote(remote: RemoteLive) {
+    this.remote = remote
+    this.dirtyLive = true
+    this.schedule()
+  }
+
+  /** Encuadra un rectángulo del mundo: seguir la vista de otra persona. */
+  showRect(r: Rect) {
+    this.vp.stopInertia()
+    this.vp.showRect(r)
+    this.lastViewChange = performance.now()
+    this.dirtyView = true
     this.schedule()
   }
 
@@ -363,6 +408,7 @@ export class Board implements InputSink {
   }
 
   hover(s: { x: number; y: number } | null) {
+    this.emitCursor(s)
     const show = this.opts.tools().tool === 'eraser' && s !== null && this.editable()
     if (!show && !this.eraserCursor) return
     this.eraserCursor = show ? s : null
@@ -371,12 +417,37 @@ export class Board implements InputSink {
   }
 
   viewChanged() {
+    this.opts.onUserView?.()
     this.lastViewChange = performance.now()
     this.dirtyView = true
     this.schedule()
   }
 
+  private emitCursor(s: { x: number; y: number } | null) {
+    if (!this.opts.onCursor) return
+    if (!s) return this.opts.onCursor(null)
+    const [x, y] = this.vp.toWorld(s.x, s.y)
+    this.opts.onCursor({ x, y })
+  }
+
+  private emitLive(session: InkSession) {
+    const l = session.live
+    const page = this.note.pages[l.page]
+    if (!this.opts.onLive || !page) return
+    this.opts.onLive({
+      pageId: page.id,
+      tool: l.tool,
+      color: l.color,
+      size: l.size,
+      opacity: l.opacity,
+      simulated: l.simulated,
+      pts: l.pts,
+      shaped: !!session.shape,
+    })
+  }
+
   beginStroke(id: number, s: Sample, simulated: boolean, eraser = false): boolean {
+    this.emitCursor(s)
     if (!this.editable()) return false
     const prefs = this.opts.tools()
     const tool = eraser ? 'eraser' : prefs.tool
@@ -440,6 +511,7 @@ export class Board implements InputSink {
     }
     this.sessions.set(id, session)
     this.armHold(session)
+    this.emitLive(session)
     this.dirtyLive = true
     this.schedule()
     return true
@@ -448,8 +520,9 @@ export class Board implements InputSink {
   extendStroke(id: number, samples: Sample[], predicted: Sample[]) {
     const session = this.sessions.get(id)
     if (!session || !samples.length) return
-    if (session.kind === 'eraser') return this.erase(session, samples)
     const last = samples[samples.length - 1]
+    this.emitCursor(last)
+    if (session.kind === 'eraser') return this.erase(session, samples)
     const [wx, wy] = this.vp.toWorld(last.x, last.y)
 
     if (session.kind === 'lasso') {
@@ -496,6 +569,7 @@ export class Board implements InputSink {
           this.armHold(session)
         }
       }
+      this.emitLive(session)
     }
     this.dirtyLive = true
     this.schedule()
@@ -537,7 +611,7 @@ export class Board implements InputSink {
     }
 
     clearTimeout(session.holdTimer)
-    if (!commit) return
+    if (!commit) return this.opts.onLive?.(null)
     const l = session.live
     const stroke = restroke({
       id: newId(),
@@ -553,6 +627,7 @@ export class Board implements InputSink {
       ...(session.shape ? { shape: session.shape.meta } : {}),
     })
     this.note.apply([{ pageId: this.note.pages[l.page].id, before: [], after: [stroke] }])
+    this.opts.onLive?.(null, stroke.id)
   }
 
   strokeInfo(id: number) {
@@ -576,6 +651,7 @@ export class Board implements InputSink {
       l.predicted = []
       l.simulated = false
       session.shape = { adjust: r.adjust, meta: r.shape }
+      this.emitLive(session)
       this.dirtyLive = true
       this.schedule()
     }, HOLD_MS)
@@ -690,6 +766,7 @@ export class Board implements InputSink {
       o.selection = { rect: this.rects[sel.page], paper: this.note.pages[sel.page].background.paper, bbox: sel.bbox, strokes, transform: drag?.transform }
     }
     if (this.eraserCursor) o.eraser = { ...this.eraserCursor, r: this.opts.tools().eraser.size }
+    if (this.remote.cursors.length) o.cursors = this.remote.cursors
     return o
   }
 
@@ -717,6 +794,7 @@ export class Board implements InputSink {
         this.dirtyInk = true
       }
       this.dirtyLive = true
+      this.opts.onView?.(vp.visibleRect)
     }
 
     const settled = !moving && performance.now() - this.lastViewChange > SETTLE_MS
@@ -728,7 +806,12 @@ export class Board implements InputSink {
 
     if (this.dirtyLive) {
       this.dirtyLive = false
-      const live = [...this.sessions.values()].filter((s): s is InkSession => s.kind === 'ink').map((s) => s.live)
+      const live: LiveStroke[] = [...this.sessions.values()].filter((s): s is InkSession => s.kind === 'ink').map((s) => s.live)
+      for (const r of this.remote.strokes) {
+        const i = this.note.pageIndex(r.pageId)
+        if (i < 0) continue
+        live.unshift({ ...r, rect: this.rects[i], paper: pages[i].background.paper, predicted: [] })
+      }
       this.renderer.drawLive(vp.cam, live, this.overlay())
     }
 

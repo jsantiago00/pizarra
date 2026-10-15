@@ -29,15 +29,18 @@ Conviene un **proyecto aparte del de Notillas**. Un proyecto de Firebase tiene u
 
    Si los perdés, están en ⚙️ **Configuración del proyecto → General → Tus apps**.
 
+   Hay una séptima variable, **opcional**: `VITE_FIREBASE_DATABASE_URL`, la dirección de Realtime Database (paso 6). Solo hace falta si la creás en una ubicación que no sea Estados Unidos.
+
 Estos valores no son secretos (viajan al navegador de todos modos). Lo que protege los datos son las reglas del paso 5.
 
-## 3. Activar el acceso anónimo
+## 3. Activar el acceso anónimo y el de Google
 
-No hay cuentas: cada navegador entra como un usuario anónimo, sin que la persona haga nada.
+Sin cuenta, cada navegador entra como un usuario anónimo, sin que la persona haga nada. Con Google, además se guardan sus pizarras en «Mis pizarras».
 
 1. Menú **Compilación → Authentication → Comenzar**.
-2. Pestaña **Método de acceso → Agregar proveedor nuevo → Anónimo**.
-3. Activalo y guardá.
+2. Pestaña **Método de acceso → Agregar proveedor nuevo → Anónimo**. Activalo y guardá.
+3. **Agregar proveedor nuevo → Google**. Activalo, elegí tu mail como **correo de asistencia** y guardá.
+4. Pestaña **Configuración → Dominios autorizados → Agregar dominio**: `santiagososa.com.ar` (el dominio donde se publica). Sin esto, el botón «Entrar con Google» da error de dominio no autorizado. `localhost` ya viene cargado.
 
 ## 4. Crear Firestore
 
@@ -63,23 +66,38 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 Cada vez que cambie `firestore.rules` en el repo hay que volver a publicarlas.
 
+## 6. Crear Realtime Database (lo en vivo)
+
+Los trazos mientras se dibujan, los punteros y «seguir mi vista» van por Realtime Database, que no cobra por escritura y avisa sola cuando alguien se desconecta. Sin ella, la sala anda igual, pero los trazos aparecen recién al levantar el lápiz.
+
+1. Menú **Compilación → Realtime Database → Crear una base de datos**.
+2. Ubicación: **Estados Unidos (us-central1)**. Si elegís otra, cargá su dirección (la que aparece arriba de los datos, `https://…firebasedatabase.app`) en la variable `VITE_FIREBASE_DATABASE_URL`.
+3. Empezá en **modo bloqueado**.
+4. En la pestaña **Reglas**, borrá lo que hay, pegá el contenido de [`database.rules.json`](../database.rules.json) y tocá **Publicar**. Con el CLI: `firebase deploy --only database`.
+
 ### Qué permiten las reglas
 
 - Con el código se puede abrir una sala, pero **no se pueden listar**: no hay forma de ver las salas de otros.
 - **Dibujan** quienes administran la sala y, según la sala, todos o solo quienes estén habilitados.
 - **Administra** quien creó la sala, y quien abre el **enlace de administración**, que lleva una clave que nadie puede leer de la base.
 - Quien fue **sacado de la sala** no la puede abrir, ni leer, ni dibujar, ni volver a entrar desde ese dispositivo.
+- **«Mis pizarras»** (`users/{uid}`): cada persona lee y escribe solo las suyas.
+- **En vivo** (Realtime Database): cada uno escribe solo su parte (`live/{código}/{su uid}`) y lee la de su sala; no se puede listar el conjunto de salas.
 - Las pruebas están en `scripts/test-rules.mjs` (`npm run test:rules`).
 
 ## Cuánto entra en el plan gratis
 
-Por día: 50 000 lecturas y 20 000 escrituras. Cada trazo es una escritura, y una lectura por cada persona que lo recibe. Una clase de una hora con unos 500 trazos y dos personas usa del orden de 1000 escrituras y 1000 lecturas, así que sobra.
+**Firestore**, por día: 50 000 lecturas y 20 000 escrituras. Cada trazo es una escritura, y una lectura por cada persona que lo recibe. Una clase de una hora con unos 500 trazos y dos personas usa del orden de 1000 escrituras y 1000 lecturas, así que sobra. Guardar la copia en «Mis pizarras» son 2 o 3 escrituras.
+
+**Realtime Database:** 100 conexiones a la vez y 10 GB de descarga por mes. Lo en vivo manda solo lo nuevo de cada trazo: una clase de una hora es del orden de unos pocos MB.
 
 ## Problemas frecuentes
 
 | Mensaje | Qué hacer |
 |---|---|
 | «El acceso anónimo no está habilitado…» | Activá el proveedor Anónimo (paso 3). |
+| «Este dominio (…) no está autorizado» al entrar con Google | Agregalo en Authentication → Configuración → Dominios autorizados (paso 3). |
+| No se ven los trazos mientras se dibujan, ni los punteros | Falta crear Realtime Database o publicar sus reglas (paso 6). |
 | «Firebase rechazó el acceso…» al crear una sala | No están publicadas las reglas (paso 5), o la app usa otro proyecto: revisá las variables. |
 | «Firestore no está listo en este proyecto» | Falta crear la base de datos (paso 4). |
 | «Falta configurar Firebase» al abrir la app publicada | Faltan las variables `VITE_FIREBASE_*` en GitHub (paso 2). Después de cargarlas, volvé a correr el workflow. |

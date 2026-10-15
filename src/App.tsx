@@ -10,6 +10,7 @@ import { Icon } from './ui/Icon'
 // Se cargan bajo demanda (y el service worker las deja precacheadas)
 const Home = lazy(() => import('./ui/Home').then((m) => ({ default: m.Home })))
 const RoomRoute = lazy(() => import('./ui/RoomRoute').then((m) => ({ default: m.RoomRoute })))
+const SavedRoute = lazy(() => import('./ui/SavedRoute').then((m) => ({ default: m.SavedRoute })))
 
 function Gate() {
   const { status, error } = useAuth()
@@ -33,6 +34,7 @@ function Gate() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/sala/:code" element={<RoomRoute />} />
+        <Route path="/guardada/:code" element={<SavedRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

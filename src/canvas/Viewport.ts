@@ -67,6 +67,19 @@ export class Viewport {
     this.clamp()
   }
 
+  /** Lo que se ve ahora, en coordenadas del mundo. */
+  get visibleRect(): Rect {
+    return { x: this.cam.x, y: this.cam.y, w: this.width / this.cam.zoom, h: this.height / this.cam.zoom }
+  }
+
+  /** Encuadra un rectángulo del mundo (seguir la vista de otra persona): entra completo y centrado. */
+  showRect(r: Rect) {
+    if (r.w <= 0 || r.h <= 0 || this.width === 0 || this.height === 0) return
+    const zoom = clampNum(Math.min(this.width / r.w, this.height / r.h), this.minZoom, this.maxZoom)
+    this.cam = { x: r.x + r.w / 2 - this.width / zoom / 2, y: r.y + r.h / 2 - this.height / zoom / 2, zoom }
+    this.clamp()
+  }
+
   /** Desplaza en píxeles de pantalla (positivo = el contenido se mueve a la derecha y abajo). */
   panBy(dx: number, dy: number) {
     this.cam.x -= dx / this.cam.zoom

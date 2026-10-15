@@ -10,6 +10,20 @@ function makeViewport() {
 }
 
 describe('Viewport', () => {
+  it('encuadra la vista de otra persona: el rectángulo entra completo y centrado', () => {
+    const v = makeViewport()
+    const r = { x: 200, y: 1000, w: 600, h: 400 }
+    v.showRect(r)
+    const vis = v.visibleRect
+    expect(vis.x).toBeLessThanOrEqual(r.x + 0.01)
+    expect(vis.y).toBeLessThanOrEqual(r.y + 0.01)
+    expect(vis.x + vis.w).toBeGreaterThanOrEqual(r.x + r.w - 0.01)
+    expect(vis.y + vis.h).toBeGreaterThanOrEqual(r.y + r.h - 0.01)
+    expect(vis.y + vis.h / 2).toBeCloseTo(r.y + r.h / 2)
+    // Lo que manda es el ancho (la vista es angosta)
+    expect(vis.w).toBeCloseTo(r.w)
+  })
+
   it('ajusta al ancho con margen', () => {
     const v = makeViewport()
     expect(v.cam.zoom).toBeCloseTo((800 - 48) / 1240)
