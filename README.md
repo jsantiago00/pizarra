@@ -4,7 +4,7 @@ Pizarra online para trabajar, estudiar o dar clases en vivo. Se entra con un **c
 
 Usa el mismo motor de dibujo que [Notillas](https://github.com/jsantiago00/Notillas): presión del lápiz, rechazo de palma, formas, goma, lazo y exportación.
 
-> **Estado:** etapas 1 (salas y permisos) y 2 (en vivo y cuenta de Google). El plan está en [PLAN.md](PLAN.md).
+> **Estado:** etapas 1 (salas y permisos), 2 (en vivo y cuenta de Google) y 3 (texto, fórmulas y figuras). El plan está en [PLAN.md](PLAN.md).
 
 ## Qué hace
 
@@ -16,6 +16,10 @@ Usa el mismo motor de dibujo que [Notillas](https://github.com/jsantiago00/Notil
 - **Varios dispositivos tuyos:** el **enlace de administración** (en **Invitar**) te deja administrar la sala desde otro dispositivo, por ejemplo la tablet y la compu.
 - **Lo de Notillas:** lapicera con presión, resaltador, goma por trazo o por área (también con el botón del S Pen), lazo, formas (dejá el lápiz quieto medio segundo), deshacer, hojas A4 apiladas lisas, rayadas, cuadriculadas o punteadas, y exportar a PDF o PNG.
 - **Para quien administra:** «Borrar todo lo de esta página», en el menú ⋯. Se puede deshacer.
+- **Texto con teclado** (`T`): tocás la hoja y escribís. El tamaño se cambia con `A` chica / `A` grande, el selector o `Ctrl +` / `Ctrl −`; negrita con `Ctrl B`; color en la misma barra. Tocando un texto con la herramienta, se edita.
+- **Fórmulas** (`M`): se escriben como en la calculadora (`x^2 + 2x - 3`, `sqrt(x)/3`, `(a+b)/(2c)`, `pi`, `<=`) o con los botones de símbolos, y quedan armadas como en un libro (MathJax).
+- **Figuras** (botón `+` o atajos): ejes cartesianos (`G`) con cuadrícula y rango editable, graficar funciones (`F`: `y = x^2 - 3`, `2sin(x)`, `|x|`, `1/x`…) y recta numérica (`N`). Se mueven y se agrandan con el lazo; «Editar» cambia el rango y las funciones.
+- **Escritura a mano → fórmula** (opcional, con MyScript): seleccionás con el lazo lo que escribiste con el lápiz y tocás «A fórmula». Ver [docs/FIREBASE.md](docs/FIREBASE.md).
 
 ## Requisitos
 

@@ -124,6 +124,7 @@ export function strokeToDoc(s: Stroke, uid: string): DocumentData {
     by: uid,
   }
   if (s.shape) d.shape = s.shape
+  if (s.item) d.item = s.item
   return d
 }
 
@@ -141,6 +142,7 @@ export function docToStroke(id: string, d: DocumentData): Stroke | null {
     bbox: d.bbox as Stroke['bbox'],
   }
   if (d.shape) s.shape = d.shape
+  if (d.item && typeof d.item === 'object' && typeof d.item.kind === 'string') s.item = d.item
   return s
 }
 

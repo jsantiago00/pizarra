@@ -1595,3 +1595,259 @@ a.icon-btn {
     font-size: 0.85rem;
   }
 }
+
+.sel-primary {
+  gap: 6px;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+/* ---------- Editor de texto y fórmulas sobre la hoja ---------- */
+.item-editor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  transform-origin: 0 0;
+}
+
+.item-input {
+  display: block;
+  margin: 0;
+  padding: calc(var(--pad) * var(--zoom, 1) * 1px);
+  min-width: calc(var(--size) * var(--zoom, 1) * 2px);
+  border: 1.5px dashed var(--accent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: inherit;
+  font-size: calc(var(--size) * var(--zoom, 1) * 1px);
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  white-space: pre;
+  caret-color: var(--accent);
+}
+
+.is-math .item-input {
+  min-width: 320px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: max(16px, calc(var(--size) * var(--zoom, 1) * 0.6px));
+  color: var(--text);
+  background: var(--surface);
+  white-space: nowrap;
+}
+
+.item-input::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.item-bar {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+}
+
+.is-math .item-bar {
+  bottom: calc(100% + 56px);
+}
+
+.item-bar .btn {
+  margin-left: 4px;
+}
+
+.item-bar-sep {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+.size-glyph {
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.size-glyph.small {
+  font-size: 13px;
+}
+
+.size-select {
+  min-height: 36px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.swatch.is-on {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.symbol-bar {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  display: flex;
+  gap: 2px;
+  max-width: min(640px, calc(100vw - 24px));
+  padding: 4px;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.symbol-btn {
+  flex-shrink: 0;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.symbol-btn:hover {
+  background: var(--surface-2);
+}
+
+.math-preview {
+  margin-top: 6px;
+  padding: 4px 6px;
+  min-height: 32px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+}
+
+.math-preview .error {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.math-svg svg {
+  display: block;
+  max-width: none;
+}
+
+.tool-text .board {
+  cursor: text;
+}
+
+.tool-math .board {
+  cursor: crosshair;
+}
+
+/* ---------- Diálogos de figuras ---------- */
+.range-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.compact-field > span {
+  font-size: 0.85rem;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+}
+
+.check-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.dialog-subtitle {
+  margin: 10px 0 8px;
+  font-size: 0.95rem;
+}
+
+.fn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fn-row .text-input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.fn-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.fn-label {
+  font-weight: 600;
+  font-style: italic;
+}
+
+.fn-error {
+  width: 100%;
+  padding-left: 20px;
+}
+
+.menu-kbd {
+  margin-left: auto;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.toolbar .menu {
+  z-index: 8;
+}
+
+/* En la barra vertical de la tablet, el menú «Insertar» se abre al costado */
+.toolbar-tablet .menu {
+  top: 0;
+  right: auto;
+  left: calc(100% + 10px);
+}
+
+.side-right .toolbar-tablet .menu {
+  left: auto;
+  right: calc(100% + 10px);
+}
+
+/* En pantallas angostas, las barras del editor se desplazan en vez de salirse */
+.item-bar,
+.symbol-bar {
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}

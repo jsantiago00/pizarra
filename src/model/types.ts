@@ -27,7 +27,24 @@ export interface Stroke {
   /** Caja del contorno ya dibujado, con el grosor incluido */
   bbox: BBox
   shape?: ShapeMeta
+  /**
+   * Objeto (texto, fórmula, ejes…) en vez de tinta. Los puntos son el contorno de su caja
+   * (rectángulo cerrado de 5 puntos), así el lazo lo mueve y lo escala como a cualquier trazo.
+   * En el texto y las fórmulas, `size` es el tamaño de letra; en las figuras, el grosor de línea.
+   */
+  item?: Item
 }
+
+export type MathFormat = 'ascii' | 'tex'
+
+export type Item =
+  | { kind: 'text'; text: string; bold?: boolean }
+  /** ascii: lo escrito con el teclado (x^2 + 2); tex: lo que devuelve el reconocimiento de escritura */
+  | { kind: 'math'; src: string; fmt: MathFormat }
+  | { kind: 'axes'; xmin: number; xmax: number; ymin: number; ymax: number; grid: boolean; fns: string[] }
+  | { kind: 'numberline'; min: number; max: number }
+
+export type ItemKind = Item['kind']
 
 export type BackgroundType = 'blank' | 'ruled' | 'grid' | 'dots'
 

@@ -13,7 +13,7 @@
 |---|---|
 | 1. Salas y permisos | ✅ Hecha |
 | 2. En vivo (trazo en curso, punteros, seguir la vista) y cuenta de Google con «Mis pizarras» | ✅ Hecha (a confirmar en la tablet) |
-| 3. Herramientas de clase | Pendiente |
+| 3. Texto, fórmulas y figuras (ejes, funciones, recta numérica); escritura → fórmula con MyScript | ✅ Hecha (a confirmar; MyScript sin probar hasta tener clave) |
 | 4. Gestión de salas | Pendiente |
 
 Actualizá esta tabla en el mismo commit que cierra cada etapa.
@@ -40,6 +40,9 @@ Actualizá esta tabla en el mismo commit que cierra cada etapa.
 - **Las reglas usan `getAfter`/`existsAfter`** para las escrituras: así la sala y su primera página entran en un mismo lote.
 - **Ruta base:** `BASE_PATH` es `/<repo>/` en Pages. Para `public/` usá `asset()` o `LOGO`; en `index.html`, `%BASE_URL%`. Nunca rutas absolutas.
 - **Lo heredado de Notillas sigue valiendo:** nada de `desynchronized: true` en el canvas; redibujar en `contextrestored` y en `visibilitychange`; el botón del S Pen borra; sin Firebase Storage; la tinta casi negra se dibuja clara en papel oscuro; el PDF con jsPDF bajo demanda.
+- **Objetos:** texto, fórmula, ejes y recta numérica son `Stroke` con `item` (`model/types.ts`); se dibujan en `items/draw.ts` (pantalla, miniaturas, PNG y PDF). Las fórmulas: AsciiMath → TeX (`asciimath2tex`) → MathJax SVG (`items/mathjax.ts`, cargado bajo demanda desde `items/math.ts`). Vite define `global` = `globalThis` por MathJax.
+- **Editor de texto y fórmulas:** `ui/ItemEditor.tsx` sobre la hoja (sigue el zoom); `ui/useItems.tsx` arma inserción, diálogos (`FigureDialogs.tsx`) y acciones de la selección. El `Board` avisa con `onPlace` y expone `replace`, `selectStroke`, `selectedItem`, `selectedInk`, `viewCenter`, `pageToScreen`, `setEditing`.
+- **MyScript:** `items/handwriting.ts`, con `VITE_MYSCRIPT_APP_KEY` y `VITE_MYSCRIPT_HMAC_KEY`; sin claves no aparece.
 - **Emuladores:** `npm run emulators` + `npm run dev:emu` (proyecto `demo-pizarra`, configuración en `.env.emu`, sin credenciales). En desarrollo existe `window.__pizarra` (`note`, `board`).
 
 ## Estructura
@@ -54,12 +57,14 @@ src/
   model/      types.ts, geometry.ts (+test), background.ts (+test), history.ts, note.ts (+test), pages.ts, codec.ts (+test)
   canvas/     Board.ts (motor; opción canEdit y clearPage), Viewport.ts (+test), InputController.ts, palm.ts (+test),
               Renderer.ts, strokeOutline.ts, layout.ts, backgrounds.ts (+test), renderPage.ts
+  items/      expr.ts (+test: funciones para graficar), draw.ts (dibujo de objetos), math.ts + mathjax.ts (+test: fórmulas),
+              insert.ts (figuras nuevas), handwriting.ts (+test: MyScript)
   recognition/ reconocimiento de formas (+test)
   export/     exporters.ts (+test)
   ui/         Home (nombre, crear, entrar, «Mis pizarras», recientes), RoomRoute (sala: nombre, administración, guardado),
               useRoomLive (en vivo y seguir la vista), SavedRoute (una copia guardada), AccountButton (Google),
               Participants (lista y permisos), ShareDialog (código, enlace, enlace de administración),
-              NoteEditor (readOnly, headerExtra, banner), Toolbar, SelectionBar, BackgroundPanel, ExportDialog, Dialog,
+              NoteEditor (readOnly, headerExtra, banner), ItemEditor, useItems, FigureDialogs, Toolbar, SelectionBar, BackgroundPanel, ExportDialog, Dialog,
               SyncBadge, Splash, SetupMissing, ThemeButton, UpdatePrompt, Icon
   App.tsx     rutas (/, /sala/:code, /guardada/:code) y conexión
 scripts/test-rules.mjs       pruebas de las reglas (npm run test:rules)

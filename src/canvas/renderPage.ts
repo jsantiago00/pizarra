@@ -2,6 +2,7 @@ import { inkColor } from '../model/background'
 import type { Page } from '../model/types'
 import { drawPageBackground } from './backgrounds'
 import { strokePath } from './strokeOutline'
+import { drawItem } from '../items/draw'
 
 export interface RenderOptions {
   /** Píxeles por unidad de página */
@@ -29,6 +30,10 @@ export function renderPage(page: Page, { scale, background }: RenderOptions): HT
   for (const pass of ['highlighter', 'pen'] as const) {
     for (const s of page.strokes) {
       if (s.tool !== pass) continue
+      if (s.item) {
+        drawItem(ctx, s, paper)
+        continue
+      }
       ctx.globalAlpha = s.opacity
       ctx.fillStyle = inkColor(s.color, paper)
       ctx.fill(strokePath(s))

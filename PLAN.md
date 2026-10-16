@@ -16,6 +16,9 @@ Pizarra online compartida: se entra con un código de sala, sin cuentas, y quien
 | Presencia | Estar en `live/{code}/{uid}` (Realtime Database, se borra al desconectarse); de respaldo, `members/{uid}.lastSeen` cada 45 s | Exacto y sin escrituras de más. |
 | En vivo | **Realtime Database**: el trazo en curso en pedazos base64 (solo lo nuevo, cada 50 ms), el puntero y la vista, en coordenadas de la página o del mundo | No cobra por escritura (Firestore sí) y tiene `onDisconnect`. Lo definitivo sigue yendo por Firestore: el «en vivo» se deja de mostrar cuando llega el trazo confirmado (`d` = su id). |
 | Cuentas | Anónimo por defecto; **Google opcional** con `linkWithPopup` (el anónimo se convierte en la cuenta y conserva el uid). Si la cuenta ya existía, se entra con ella y la administración se recupera con las claves guardadas en el dispositivo | Pedido del usuario: sin cuenta no se guarda nada, con cuenta se guardan las pizarras. |
+| Objetos | Texto, fórmulas y figuras son **trazos con `item`**: sus puntos son el rectángulo de la caja | Así funcionan solos el deshacer, el lazo (mover y escalar), la goma, la sincronización, «Mis pizarras» y la exportación. En el texto y las fórmulas, `size` es el tamaño de letra. |
+| Fórmulas | Se escriben en **AsciiMath** (`x^2 + 2`), se pasan a TeX con `asciimath2tex` y **MathJax** (cargado bajo demanda) arma un SVG que se dibuja en el canvas; en el PDF va como PNG | La entrada AsciiMath de MathJax es código viejo que no corre en módulos estrictos. |
+| Escritura → fórmula | **MyScript** (Cloud API iink, pedido batch con HMAC) | Es lo mejor para lápiz; sin claves, la opción no aparece. |
 | «Mis pizarras» | Una **copia** por sala en `users/{uid}/boards/{code}`, con los trazos en pedazos de hasta ~700 KB | Para repasar aunque la sala cambie o se borre. Guardar una clase son 2 o 3 escrituras. |
 
 ## 2. Modelo de datos (Firestore)
@@ -53,7 +56,7 @@ Al final de cada una te paso cómo probarla y espero tu OK.
 |---|---|---|
 | 1 ✅ | Salas y permisos | Crear sala, entrar con código o enlace, nombre, sincronización en tiempo real, quién dibuja (todos o habilitados), participantes conectados, sacar de la sala, enlace de administración, borrar todo, solo mirar, publicación en GitHub Pages |
 | 2 ✅ | En vivo y cuenta | Ver el trazo de los demás **mientras** lo dibujan y sus punteros con el nombre; «seguir mi vista» para que el alumno vea lo mismo que el profe (Realtime Database). Además, login con Google opcional y «Mis pizarras» con la copia de cada sala |
-| 3 | Herramientas de clase | Texto con teclado, imágenes (una foto del ejercicio) comprimidas dentro de Firestore, regla y transportador, puntero láser que se borra solo |
+| 3 ✅ | Herramientas de clase | Texto con teclado (tamaño, negrita, color), fórmulas escritas como en la calculadora (AsciiMath → TeX → MathJax en SVG), ejes cartesianos con funciones, recta numérica, atajos T/M/G/F/N; escritura a mano → fórmula con MyScript (opcional, con clave). Imágenes y regla quedan para más adelante |
 | 4 | Gestión de salas | Cerrar o borrar una sala, duplicarla como plantilla, salas que vencen solas, exportar la clase al final |
 | 5 (opcional) | Salas de la cuenta | Que quien administra con Google vea sus salas (no solo las copias) en todos sus dispositivos, sin el enlace de administración |
 

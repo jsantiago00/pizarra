@@ -38,6 +38,14 @@ const paths = {
   eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z',
   enter: 'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3',
   x: 'M6 6l12 12M18 6 6 18',
+  text: 'M5 6V4h14v2M12 4v16M9 20h6',
+  sigma: 'M18 6V4H6l6 8-6 8h12v-2',
+  axes: 'M5 3v16h16M5 3 3 5M5 3l2 2M21 19l-2-2M21 19l-2 2M8 15c2-6 4-8 6-8s3 2 5 6',
+  numberline: 'M2 12h20M4 10l-2 2 2 2M20 10l2 2-2 2M7 9v6M12 9v6M17 9v6',
+  fx: 'M10 4c-2 0-3 1-3 3v13M4 10h6M13 10l6 8M19 10l-6 8',
+  edit: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4',
+  minus: 'M5 12h14',
+  bold: 'M7 4h6a4 4 0 0 1 0 8H7zM7 12h7a4 4 0 0 1 0 8H7z',
 } as const
 
 export type IconName = keyof typeof paths

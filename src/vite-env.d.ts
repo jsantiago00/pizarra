@@ -8,6 +8,9 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID?: string
   readonly VITE_FIREBASE_APP_ID?: string
   readonly VITE_FIREBASE_DATABASE_URL?: string
+  /** MyScript (escritura a mano → fórmula), opcional */
+  readonly VITE_MYSCRIPT_APP_KEY?: string
+  readonly VITE_MYSCRIPT_HMAC_KEY?: string
   /** "1" para usar los emuladores de Firebase (pruebas locales) */
   readonly VITE_USE_EMULATORS?: string
 }

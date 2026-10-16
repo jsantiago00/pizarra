@@ -9,17 +9,30 @@ import {
   SIZE_RANGE,
   setEraser,
   setInk,
+  setText,
+  TEXT_SIZES,
   setTool,
   useTools,
   type ToolId,
 } from '../lib/toolPrefs'
 import { Icon, type IconName } from './Icon'
+import { Menu } from './NoteEditor'
 
 const TOOLS: { id: ToolId; icon: IconName; label: string; key: string }[] = [
   { id: 'pen', icon: 'pen', label: 'Lapicera', key: 'P' },
   { id: 'highlighter', icon: 'highlighter', label: 'Resaltador', key: 'H' },
   { id: 'eraser', icon: 'eraser', label: 'Goma', key: 'E' },
   { id: 'lasso', icon: 'lasso', label: 'Lazo', key: 'L' },
+  { id: 'text', icon: 'text', label: 'Texto', key: 'T' },
+  { id: 'math', icon: 'sigma', label: 'Fórmula', key: 'M' },
+]
+
+export type InsertKind = 'axes' | 'numberline' | 'function'
+
+const INSERTS: { id: InsertKind; icon: IconName; label: string; key: string }[] = [
+  { id: 'axes', icon: 'axes', label: 'Ejes cartesianos', key: 'G' },
+  { id: 'function', icon: 'fx', label: 'Graficar una función', key: 'F' },
+  { id: 'numberline', icon: 'numberline', label: 'Recta numérica', key: 'N' },
 ]
 
 interface Props {
@@ -28,18 +41,20 @@ interface Props {
   canRedo: boolean
   onUndo: () => void
   onRedo: () => void
+  onInsert: (kind: InsertKind) => void
 }
 
 /**
  * Herramientas, deshacer y rehacer. Tocar la herramienta activa abre sus opciones
  * (color, grosor, modo de la goma).
  */
-export function Toolbar({ mode, canUndo, canRedo, onUndo, onRedo }: Props) {
+export function Toolbar({ mode, canUndo, canRedo, onUndo, onRedo, onInsert }: Props) {
   const tool = useTools((s) => s.tool)
   const pen = useTools((s) => s.pen)
   const hl = useTools((s) => s.highlighter)
   const shapes = useTools((s) => s.shapes)
   const [open, setOpen] = useState(false)
+  const [inserting, setInserting] = useState(false)
 
   const pick = (id: ToolId) => {
     if (id === tool) setOpen((o) => !o)
@@ -49,7 +64,8 @@ export function Toolbar({ mode, canUndo, canRedo, onUndo, onRedo }: Props) {
     }
   }
 
-  const dot = (id: ToolId) => (id === 'pen' ? pen.color : id === 'highlighter' ? hl.color : null)
+  const textColor = useTools((s) => s.text.color)
+  const dot = (id: ToolId) => (id === 'pen' ? pen.color : id === 'highlighter' ? hl.color : id === 'text' || id === 'math' ? textColor : null)
 
   return (
     <div className={`toolbar toolbar-${mode}`} role="toolbar" aria-label="Herramientas">
@@ -70,6 +86,35 @@ export function Toolbar({ mode, canUndo, canRedo, onUndo, onRedo }: Props) {
           </button>
         )
       })}
+      <div className="menu-anchor">
+        <button
+          className={`icon-btn${inserting ? ' is-on' : ''}`}
+          onClick={() => setInserting((v) => !v)}
+          aria-expanded={inserting}
+          aria-label="Insertar ejes, función o recta numérica"
+          title="Insertar figura (G, F, N)"
+        >
+          <Icon name="plus" />
+        </button>
+        {inserting && (
+          <Menu onClose={() => setInserting(false)}>
+            {INSERTS.map((it) => (
+              <button
+                key={it.id}
+                role="menuitem"
+                className="menu-item"
+                onClick={() => {
+                  setInserting(false)
+                  onInsert(it.id)
+                }}
+              >
+                <Icon name={it.icon} size={18} /> {it.label}
+                <kbd className="menu-kbd">{it.key}</kbd>
+              </button>
+            ))}
+          </Menu>
+        )}
+      </div>
       <span className="toolbar-sep" />
       <button
         className={`icon-btn${shapes ? ' is-on' : ''}`}
@@ -143,6 +188,37 @@ function ToolOptions({ mode, onClose }: { mode: LayoutMode; onClose: () => void 
             onChange={(size) => setEraser({ size })}
           />
           <p className="panel-hint">Con el botón del S Pen apretado, el lápiz borra con cualquier herramienta.</p>
+        </>
+      )}
+      {(t === 'text' || t === 'math') && (
+        <>
+          <strong>{t === 'text' ? 'Texto' : 'Fórmula'}</strong>
+          <div className="swatches swatches-wrap" role="radiogroup" aria-label="Color">
+            {PEN_COLORS.map((c) => (
+              <button
+                key={c}
+                className="swatch"
+                style={{ background: c }}
+                role="radio"
+                aria-checked={c === prefs.text.color}
+                aria-pressed={c === prefs.text.color}
+                aria-label={`Color ${c}`}
+                onClick={() => setText({ color: c })}
+              />
+            ))}
+          </div>
+          <div className="chips" role="radiogroup" aria-label="Tamaño de letra">
+            {TEXT_SIZES.map((z) => (
+              <button key={z.value} className="chip" role="radio" aria-checked={prefs.text.size === z.value} aria-pressed={prefs.text.size === z.value} onClick={() => setText({ size: z.value })}>
+                {z.label}
+              </button>
+            ))}
+          </div>
+          <p className="panel-hint">
+            {t === 'text'
+              ? 'Tocá la hoja y escribí con el teclado. Ctrl + y Ctrl − cambian el tamaño; Ctrl B, la negrita.'
+              : 'Tocá la hoja y escribí como en la calculadora: x^2 + 2, sqrt(x)/3, (a+b)/(c). Se arma solo.'}
+          </p>
         </>
       )}
       {t === 'lasso' && (

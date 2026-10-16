@@ -8,6 +8,8 @@ import { InputController, type InputSink, type PointerDebug, type Sample } from 
 import { contentRect, layoutPages, pageAt } from './layout'
 import { HANDLE_PX, Renderer, corners, type LiveStroke, type Overlay, type SelectionTransform } from './Renderer'
 import { outlineOf, pathFromOutline, primeStrokePath, strokePath } from './strokeOutline'
+import { hitsItem, itemBox } from '../items/draw'
+import { onMathReady } from '../items/math'
 import { Viewport } from './Viewport'
 
 /** El trazo propio en curso, para mostrarlo en vivo a los demás (puntos en coordenadas de la página). */
@@ -57,6 +59,18 @@ export interface BoardOptions {
   onView?: (rect: Rect) => void
   /** La persona movió la vista (pan, zoom, ajustar): sirve para dejar de seguir a otro */
   onUserView?: () => void
+  /**
+   * Toque con la herramienta de texto o de fórmula: en un lugar vacío (crear) o sobre un texto
+   * o una fórmula que ya existe (editarlo). Coordenadas de la página.
+   */
+  onPlace?: (p: { tool: 'text' | 'math'; page: number; x: number; y: number; hit: Stroke | null }) => void
+}
+
+/** Lo que se ve de un objeto que se está editando con el teclado (para ubicar el editor encima). */
+export interface ScreenBox {
+  x: number
+  y: number
+  zoom: number
 }
 
 /** Reconocimiento de formas enchufable (etapa 6). */
@@ -97,7 +111,20 @@ interface DragSession {
   transform: SelectionTransform
 }
 
-type Session = InkSession | EraserSession | LassoSession | DragSession
+/** Toque con la herramienta de texto o de fórmula: se resuelve al levantar. */
+interface PlaceSession {
+  kind: 'place'
+  t0: number
+  tool: 'text' | 'math'
+  page: number
+  x: number
+  y: number
+  sx: number
+  sy: number
+  moved: boolean
+}
+
+type Session = InkSession | EraserSession | LassoSession | DragSession | PlaceSession
 
 interface Selection {
   page: number
@@ -166,6 +193,15 @@ export class Board implements InputSink {
           this.clearSelection()
           this.invalidate()
         }
+      }),
+    )
+
+    // Una fórmula terminó de cargarse: hay que redibujarla
+    this.off.push(
+      onMathReady(() => {
+        this.dirtyInk = true
+        this.dirtyLive = true
+        this.schedule()
       }),
     )
 
@@ -253,6 +289,64 @@ export class Board implements InputSink {
     this.schedule()
   }
 
+  // ---------- Objetos (texto, fórmulas, figuras) ----------
+
+  /** Mientras se edita un objeto con el teclado, el lienzo no lo dibuja (lo muestra el editor). */
+  setEditing(id: string | null) {
+    if (this.editing === id) return
+    this.editing = id
+    this.dirtyInk = true
+    this.schedule()
+  }
+  private editing: string | null = null
+
+  /** Punto de pantalla (relativo al lienzo) de un punto de la página, y el zoom. */
+  pageToScreen(page: number, x: number, y: number): ScreenBox | null {
+    const r = this.rects[page]
+    if (!r) return null
+    const [sx, sy] = this.vp.toScreen(r.x + x, r.y + y)
+    return { x: sx, y: sy, zoom: this.vp.cam.zoom }
+  }
+
+  /** El centro de lo que se ve, en coordenadas de la página más cercana, y cuánto se ve de ancho. */
+  viewCenter(): { page: number; x: number; y: number; w: number; h: number } {
+    const page = this.currentPage()
+    const r = this.rects[page]
+    const v = this.vp.visibleRect
+    const cx = Math.min(r.x + r.w, Math.max(r.x, v.x + v.w / 2))
+    const cy = Math.min(r.y + r.h, Math.max(r.y, v.y + v.h / 2))
+    return { page, x: cx - r.x, y: cy - r.y, w: Math.min(v.w, r.w), h: Math.min(v.h, r.h) }
+  }
+
+  /** Si lo seleccionado con el lazo es un solo objeto, ese. */
+  selectedItem(): { page: number; stroke: Stroke } | null {
+    const sel = this.selection
+    if (!sel || sel.ids.size !== 1) return null
+    const stroke = this.note.pages[sel.page]?.strokes.find((s) => sel.ids.has(s.id))
+    return stroke?.item ? { page: sel.page, stroke } : null
+  }
+
+  /** Los trazos seleccionados con el lazo (tinta, sin objetos). */
+  selectedInk(): { page: number; strokes: Stroke[] } | null {
+    const sel = this.selection
+    if (!sel) return null
+    const strokes = this.note.pages[sel.page]?.strokes.filter((s) => sel.ids.has(s.id) && !s.item) ?? []
+    return strokes.length ? { page: sel.page, strokes } : null
+  }
+
+  /** Reemplaza trazos de una página (crear: before vacío; editar: mismo id). Se puede deshacer. */
+  replace(page: number, before: Stroke[], after: Stroke[]) {
+    const p = this.note.pages[page]
+    if (!p) return
+    this.clearSelection()
+    this.note.apply([{ pageId: p.id, before, after: after.map(restroke) }])
+  }
+
+  /** Selecciona un trazo (después de crearlo, para moverlo o escalarlo con el lazo). */
+  selectStroke(page: number, id: string) {
+    this.select(page, new Set([id]))
+  }
+
   clearSelection() {
     if (!this.selection) return
     this.selection = null
@@ -315,7 +409,7 @@ export class Board implements InputSink {
     // Misma forma, otro color: el contorno ya calculado sirve
     const after = before.map((s) => {
       const c = { ...s, color }
-      primeStrokePath(c, strokePath(s))
+      if (!s.item) primeStrokePath(c, strokePath(s))
       return c
     })
     this.note.apply([{ pageId: page.id, before, after }])
@@ -463,6 +557,13 @@ export class Board implements InputSink {
       return true
     }
 
+    if (tool === 'text' || tool === 'math') {
+      if (page < 0) return false
+      const r = this.rects[page]
+      this.sessions.set(id, { kind: 'place', t0: performance.now(), tool, page, x: wx - r.x, y: wy - r.y, sx: s.x, sy: s.y, moved: false })
+      return true
+    }
+
     if (tool === 'lasso') {
       const sel = this.selection
       if (sel) {
@@ -531,6 +632,9 @@ export class Board implements InputSink {
         const [x, y] = this.vp.toWorld(s.x, s.y)
         session.pts.push(x - r.x, y - r.y)
       }
+    } else if (session.kind === 'place') {
+      if (Math.hypot(last.x - session.sx, last.y - session.sy) > 12) session.moved = true
+      return
     } else if (session.kind === 'drag') {
       const sel = this.selection!
       const t = session.transform
@@ -592,6 +696,20 @@ export class Board implements InputSink {
       const page = this.note.pages[session.page]
       const ids = new Set(page.strokes.filter((s) => fractionInside(s.pts, session.pts) >= LASSO_FRACTION).map((s) => s.id))
       if (ids.size) this.select(session.page, ids)
+      return
+    }
+    if (session.kind === 'place') {
+      if (!commit || session.moved) return
+      const strokes = this.note.pages[session.page]?.strokes ?? []
+      let hit: Stroke | null = null
+      for (let i = strokes.length - 1; i >= 0; i--) {
+        const k = strokes[i].item?.kind
+        if ((k === 'text' || k === 'math') && hitsItem(strokes[i], session.x, session.y, 4 / this.vp.cam.zoom)) {
+          hit = strokes[i]
+          break
+        }
+      }
+      this.opts.onPlace?.({ tool: session.tool, page: session.page, x: session.x, y: session.y, hit })
       return
     }
     if (session.kind === 'drag') {
@@ -693,6 +811,12 @@ export class Board implements InputSink {
           const b = s.bbox
           if (x < b[0] - r || x > b[2] + r || y < b[1] - r || y > b[3] + r) {
             next.push(s)
+            continue
+          }
+          // Los objetos (texto, fórmulas, ejes) se borran enteros
+          if (s.item) {
+            if (hitsItem(s, x, y, r)) before.push(s)
+            else next.push(s)
             continue
           }
           if (prefs.mode === 'stroke') {
@@ -799,7 +923,8 @@ export class Board implements InputSink {
 
     const settled = !moving && performance.now() - this.lastViewChange > SETTLE_MS
     if (this.dirtyInk || (this.inkPreviewed && settled)) {
-      this.lastInkMs = this.renderer.drawInk(vp, pages, this.rects, this.hidden)
+      const hidden = this.editing ? new Set([...this.hidden, this.editing]) : this.hidden
+      this.lastInkMs = this.renderer.drawInk(vp, pages, this.rects, hidden)
       this.dirtyInk = false
       this.inkPreviewed = false
     }
@@ -858,6 +983,11 @@ export class Board implements InputSink {
 
 /** Recalcula el contorno y la caja de un trazo (después de crearlo, cortarlo o transformarlo). */
 export function restroke(s: Stroke): Stroke {
+  if (s.item) {
+    const stroke: Stroke = { ...s, bbox: itemBox(s) }
+    if (!stroke.shape) delete stroke.shape
+    return stroke
+  }
   const outline = outlineOf(s, true)
   const stroke: Stroke = { ...s, bbox: outline.length ? bboxOf(outline.flat(), 2, 1) : bboxOf(s.pts, 3, s.size / 2) }
   if (!stroke.shape) delete stroke.shape

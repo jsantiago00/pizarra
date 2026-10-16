@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { PEN_COLORS } from '../lib/toolPrefs'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
+
+export interface SelectionAction {
+  label: string
+  icon: IconName
+  run: () => void
+  /** Se muestra con texto al lado del ícono (la acción principal) */
+  primary?: boolean
+}
 
 interface Props {
   /** Caja de la selección en píxeles, relativa a la ventana */
@@ -9,12 +17,14 @@ interface Props {
   onDuplicate: () => void
   onColor: (c: string) => void
   onDone: () => void
+  /** Acciones según lo seleccionado: editar un objeto, convertir en fórmula… */
+  extra?: SelectionAction[]
 }
 
 /** Acciones sobre lo seleccionado con el lazo, flotando arriba (o abajo) de la selección. */
-export function SelectionBar({ box, onDelete, onDuplicate, onColor, onDone }: Props) {
+export function SelectionBar({ box, onDelete, onDuplicate, onColor, onDone, extra = [] }: Props) {
   const [colors, setColors] = useState(false)
-  const width = 230
+  const width = 230 + extra.reduce((w, a) => w + (a.primary ? 110 : 46), 0)
   const left = Math.max(8, Math.min(window.innerWidth - width - 8, box.x + box.w / 2 - width / 2))
   const above = box.y - 64 > 60
   const top = above ? box.y - 60 : Math.min(window.innerHeight - 60, box.y + box.h + 12)
@@ -40,6 +50,18 @@ export function SelectionBar({ box, onDelete, onDuplicate, onColor, onDone }: Pr
         </>
       ) : (
         <>
+          {extra.map((a) => (
+            <button
+              key={a.label}
+              className={a.primary ? 'btn btn-small btn-primary-solid sel-primary' : 'icon-btn'}
+              onClick={a.run}
+              aria-label={a.label}
+              title={a.label}
+            >
+              <Icon name={a.icon} size={20} />
+              {a.primary && <span>{a.label}</span>}
+            </button>
+          ))}
           <button className="icon-btn" onClick={onDelete} aria-label="Borrar selección" title="Borrar (Supr)">
             <Icon name="trash" size={20} />
           </button>

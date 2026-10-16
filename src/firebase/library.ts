@@ -60,6 +60,7 @@ function strokeDoc(s: Stroke): DocumentData {
     simulated: s.simulated,
   }
   if (s.shape) d.shape = s.shape
+  if (s.item) d.item = s.item
   return d
 }
 

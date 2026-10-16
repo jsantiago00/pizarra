@@ -2,6 +2,8 @@ import { drawPageBackground } from '../canvas/backgrounds'
 import { renderPage } from '../canvas/renderPage'
 import { outlineOf, traceOutline } from '../canvas/strokeOutline'
 import { inkColor } from '../model/background'
+import { drawItem } from '../items/draw'
+import { ensureMath } from '../items/math'
 import type { Page } from '../model/types'
 
 export interface ExportOptions {
@@ -11,6 +13,7 @@ export interface ExportOptions {
 
 /** PNG de una página a 2× (2480 × 3508 px, como un A4 a 300 ppp). */
 export async function exportPng(page: Page, { background }: ExportOptions): Promise<Blob> {
+  await mathReady([page], background)
   const canvas = renderPage(page, { scale: 2, background })
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo generar la imagen'))), 'image/png'),
@@ -23,6 +26,7 @@ export async function exportPng(page: Page, { background }: ExportOptions): Prom
  * jsPDF se carga recién acá, para no sumarle peso al inicio de la app.
  */
 export async function exportPdf(pages: readonly Page[], { background }: ExportOptions, title = ''): Promise<Blob> {
+  await mathReady(pages, background)
   const { jsPDF, GState } = await import('jspdf')
   const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait', compress: true })
   doc.setProperties({ title: title || 'Pizarra', creator: 'Pizarra' })
@@ -41,6 +45,13 @@ export async function exportPdf(pages: readonly Page[], { background }: ExportOp
     for (const pass of ['highlighter', 'pen'] as const) {
       for (const s of page.strokes) {
         if (s.tool !== pass) continue
+        if (s.item) {
+          if (alpha !== 1) doc.setGState(new GState({ opacity: (alpha = 1) }))
+          drawItem(ctx as unknown as CanvasRenderingContext2D, s, paper, {
+            pdf: { image: (png, x, y, w, h) => doc.addImage(png, 'PNG', x * scale, y * scale, w * scale, h * scale) },
+          })
+          continue
+        }
         if (s.opacity !== alpha) doc.setGState(new GState({ opacity: (alpha = s.opacity) }))
         ctx.fillStyle = inkColor(s.color, paper)
         ctx.beginPath()
@@ -52,6 +63,16 @@ export async function exportPdf(pages: readonly Page[], { background }: ExportOp
     ctx.restore()
   })
   return doc.output('blob')
+}
+
+/** Las fórmulas tienen que estar listas antes de dibujar la página. */
+function mathReady(pages: readonly Page[], background: boolean) {
+  const list = pages.flatMap((p) =>
+    p.strokes.flatMap((s) =>
+      s.item?.kind === 'math' ? [{ src: s.item.src, fmt: s.item.fmt, color: inkColor(s.color, background ? p.background.paper : '#ffffff') }] : [],
+    ),
+  )
+  return ensureMath(list)
 }
 
 /** Comparte el archivo (celular) o, si no se puede, lo descarga. */

@@ -133,8 +133,9 @@ service cloud.firestore {
         match /strokes/{strokeId} {
           allow read: if canRead(code);
           allow create, update: if canDraw(code)
-            && request.resource.data.keys().hasOnly(['tool', 'color', 'size', 'opacity', 'pts', 'n', 'bbox', 'z', 'simulated', 'shape', 'createdAt', 'by'])
+            && request.resource.data.keys().hasOnly(['tool', 'color', 'size', 'opacity', 'pts', 'n', 'bbox', 'z', 'simulated', 'shape', 'item', 'createdAt', 'by'])
             && request.resource.data.by == request.auth.uid
+            && (!('item' in request.resource.data) || request.resource.data.item is map)
             && request.resource.data.pts is bytes
             && request.resource.data.pts.size() <= 200000;
           allow delete: if canDraw(code);

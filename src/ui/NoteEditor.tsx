@@ -15,7 +15,8 @@ import { ConfirmDialog, Modal } from './Dialog'
 import { ExportDialog } from './ExportDialog'
 import { Icon } from './Icon'
 import { SelectionBar } from './SelectionBar'
-import { Toolbar } from './Toolbar'
+import { Toolbar, type InsertKind } from './Toolbar'
+import { useItems } from './useItems'
 
 export interface MenuAction {
   label: string
@@ -46,7 +47,8 @@ interface Props {
   boardOptions?: Partial<BoardOptions>
 }
 
-const TOOL_KEYS: Record<string, ToolId> = { p: 'pen', h: 'highlighter', e: 'eraser', l: 'lasso' }
+const TOOL_KEYS: Record<string, ToolId> = { p: 'pen', h: 'highlighter', e: 'eraser', l: 'lasso', t: 'text', m: 'math' }
+const INSERT_KEYS: Record<string, InsertKind> = { g: 'axes', n: 'numberline', f: 'function' }
 
 export function NoteEditor({ note, title, onRename, status, actions = [], onBoard, readOnly = false, canClear = false, headerExtra, banner, boardOptions }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
@@ -72,6 +74,11 @@ export function NoteEditor({ note, title, onRename, status, actions = [], onBoar
   const justDetectedPen = useInputPrefs((s) => s.justDetectedPen)
   const [confirmClear, setConfirmClear] = useState<number | null>(null)
   const readOnlyRef = useRef(readOnly)
+  const items = useItems(boardRef, note)
+  const itemsRef = useRef(items)
+  useEffect(() => {
+    itemsRef.current = items
+  })
 
   useEffect(() => {
     readOnlyRef.current = readOnly
@@ -92,6 +99,7 @@ export function NoteEditor({ note, title, onRename, status, actions = [], onBoar
       recognize: shapeRecognizer,
       fingerDraws: () => useInputPrefs.getState().fingerDraws,
       canEdit: () => !readOnlyRef.current,
+      onPlace: (p) => itemsRef.current.onPlace(p),
       onPenDetected: notePenSeen,
       onZoom: setZoom,
       onPage: (index, total) => setPage({ index, total }),
@@ -139,6 +147,7 @@ export function NoteEditor({ note, title, onRename, status, actions = [], onBoar
       if (mod && k === 'z') b[e.shiftKey ? 'redo' : 'undo']()
       else if (mod && k === 'y') b.redo()
       else if (!mod && !e.altKey && TOOL_KEYS[k]) setTool(TOOL_KEYS[k])
+      else if (!mod && !e.altKey && INSERT_KEYS[k]) itemsRef.current.insert(INSERT_KEYS[k])
       else if (e.key === 'Delete' || e.key === 'Backspace') b.deleteSelection()
       else if (e.key === 'Escape') b.clearSelection()
       else return
@@ -185,6 +194,7 @@ export function NoteEditor({ note, title, onRename, status, actions = [], onBoar
       canRedo={hist.redo}
       onUndo={() => boardRef.current?.undo()}
       onRedo={() => boardRef.current?.redo()}
+      onInsert={items.insert}
     />
   )
 
@@ -269,6 +279,7 @@ export function NoteEditor({ note, title, onRename, status, actions = [], onBoar
         <div className="board" ref={rootRef} />
         {mode === 'tablet' && !readOnly && toolbar}
         {banner && <div className="board-banner">{banner}</div>}
+        {items.overlays}
         {page.total > 1 && (
           <div className="page-pill" aria-live="polite">
             {page.index + 1} / {page.total}
@@ -282,6 +293,7 @@ export function NoteEditor({ note, title, onRename, status, actions = [], onBoar
           onDuplicate={() => boardRef.current?.duplicateSelection()}
           onColor={(c) => boardRef.current?.recolorSelection(c)}
           onDone={() => boardRef.current?.clearSelection()}
+          extra={readOnly ? [] : items.selectionActions()}
         />
       )}
       {bgOpen && bg && (
@@ -324,6 +336,12 @@ export function NoteEditor({ note, title, onRename, status, actions = [], onBoar
           <dl className="shortcuts">
             <dt>P · H · E · L</dt>
             <dd>Lapicera, resaltador, goma, lazo</dd>
+            <dt>T · M</dt>
+            <dd>Texto · fórmula (tocá la hoja y escribí)</dd>
+            <dt>Ctrl + + / − · Ctrl B</dt>
+            <dd>Mientras escribís: tamaño de letra · negrita</dd>
+            <dt>G · F · N</dt>
+            <dd>Ejes cartesianos · graficar una función · recta numérica</dd>
             <dt>Ctrl + Z</dt>
             <dd>Deshacer</dd>
             <dt>Ctrl + Shift + Z · Ctrl + Y</dt>

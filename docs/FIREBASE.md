@@ -101,3 +101,13 @@ Los trazos mientras se dibujan, los punteros y «seguir mi vista» van por Realt
 | «Firebase rechazó el acceso…» al crear una sala | No están publicadas las reglas (paso 5), o la app usa otro proyecto: revisá las variables. |
 | «Firestore no está listo en este proyecto» | Falta crear la base de datos (paso 4). |
 | «Falta configurar Firebase» al abrir la app publicada | Faltan las variables `VITE_FIREBASE_*` en GitHub (paso 2). Después de cargarlas, volvé a correr el workflow. |
+
+## Opcional: escritura a mano → fórmula (MyScript)
+
+Para que aparezca **«A fórmula»** al seleccionar con el lazo algo escrito a mano:
+
+1. Creá una cuenta gratis en <https://developer.myscript.com> y pedí las claves de la **Cloud API** (iink). Te da una **Application key** y una **HMAC key**.
+2. En el panel de MyScript, restringí las claves al dominio de la app (`santiagososa.com.ar`), si lo permite: las claves viajan al navegador.
+3. En GitHub, **Settings → Secrets and variables → Actions → Variables**, creá `VITE_MYSCRIPT_APP_KEY` y `VITE_MYSCRIPT_HMAC_KEY`, y volvé a correr el workflow.
+
+Sin estas variables la opción no aparece y el resto anda igual. El plan gratis tiene un límite mensual de reconocimientos: alcanza de sobra para clases.

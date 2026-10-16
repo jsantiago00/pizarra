@@ -18,8 +18,10 @@
     "test:rules": "firebase emulators:exec --only auth,firestore,database --project demo-pizarra \"node scripts/test-rules.mjs\""
   },
   "dependencies": {
+    "asciimath2tex": "^1.5.0",
     "firebase": "^13.0.0",
     "jspdf": "^3.0.4",
+    "mathjax-full": "^3.2.2",
     "perfect-freehand": "^1.2.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

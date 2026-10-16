@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type ToolId = 'pen' | 'highlighter' | 'eraser' | 'lasso'
+export type ToolId = 'pen' | 'highlighter' | 'eraser' | 'lasso' | 'text' | 'math'
 export type EraserMode = 'stroke' | 'area'
 export type ToolbarSide = 'left' | 'right'
 
@@ -19,7 +19,18 @@ export interface ToolPrefs {
   side: ToolbarSide
   /** Reconocimiento de formas (etapa 6) */
   shapes: boolean
+  /** Texto y fórmulas: tamaño de letra (unidades de página) y color */
+  text: { size: number; color: string; bold: boolean }
 }
+
+/** Tamaños de letra rápidos: la hoja mide 1240 de ancho, así que 40 es una letra «normal» de pizarrón. */
+export const TEXT_SIZES = [
+  { label: 'Chica', value: 28 },
+  { label: 'Mediana', value: 40 },
+  { label: 'Grande', value: 60 },
+  { label: 'Enorme', value: 90 },
+] as const
+export const TEXT_SIZE_RANGE = { min: 14, max: 200 } as const
 
 export const PEN_COLORS = ['#1f1d1a', '#2f5bd3', '#d0342c', '#23875a', '#7b3fc4']
 export const HIGHLIGHTER_COLORS = ['#ffe14d', '#8ef08a', '#ff9ad5', '#8fd3ff', '#ffb86b']
@@ -43,6 +54,7 @@ const DEFAULTS: ToolPrefs = {
   eraser: { size: ERASER_SIZES[1], mode: 'stroke' },
   side: 'left',
   shapes: true,
+  text: { size: 40, color: PEN_COLORS[0], bold: false },
 }
 
 function read(): ToolPrefs {
@@ -55,6 +67,7 @@ function read(): ToolPrefs {
         pen: { ...DEFAULTS.pen, ...v.pen },
         highlighter: { ...DEFAULTS.highlighter, ...v.highlighter },
         eraser: { ...DEFAULTS.eraser, ...v.eraser },
+        text: { ...DEFAULTS.text, ...v.text },
       }
     }
   } catch {
@@ -80,6 +93,10 @@ export function setTool(tool: ToolId) {
 
 export function setInk(tool: 'pen' | 'highlighter', patch: Partial<InkSettings>) {
   useTools.setState((s) => ({ [tool]: { ...s[tool], ...patch } }) as Partial<ToolPrefs>)
+}
+
+export function setText(patch: Partial<ToolPrefs['text']>) {
+  useTools.setState((s) => ({ text: { ...s.text, ...patch } }))
 }
 
 export function setEraser(patch: Partial<ToolPrefs['eraser']>) {

@@ -3,6 +3,7 @@ import type { BBox, InkTool, Page, Stroke } from '../model/types'
 import { inkColor } from '../model/background'
 import { drawPageBackground } from './backgrounds'
 import { outlineOf, pathFromOutline, strokePath } from './strokeOutline'
+import { drawItem } from '../items/draw'
 import type { Camera, Viewport } from './Viewport'
 
 /** Trazo en curso (o su vista previa): puntos en coordenadas de su página. */
@@ -138,7 +139,7 @@ export class Renderer {
         for (const pass of ['highlighter', 'pen'] as const) {
           for (const s of pages[i].strokes) {
             if (s.tool !== pass || hidden?.has(s.id) || !bboxIntersects(s.bbox, local)) continue
-            fillStroke(ctx, s, strokePath(s), paper)
+            paint(ctx, s, paper)
           }
         }
       })
@@ -152,7 +153,7 @@ export class Renderer {
     // El resaltador va por debajo: hay que redibujar todo
     if (stroke.tool !== 'pen' || !this.inkCam || !sameCam(this.inkCam, vp.cam)) return false
     const ctx = this.inkCtx
-    this.withPage(ctx, vp.cam, rect, () => fillStroke(ctx, stroke, strokePath(stroke), paper))
+    this.withPage(ctx, vp.cam, rect, () => paint(ctx, stroke, paper))
     return true
   }
 
@@ -184,7 +185,7 @@ export class Renderer {
         ctx.scale(t.k, t.k)
         ctx.translate(-t.ox, -t.oy)
         for (const pass of ['highlighter', 'pen'] as const) {
-          for (const s of sel.strokes) if (s.tool === pass) fillStroke(ctx, s, strokePath(s), sel.paper)
+          for (const s of sel.strokes) if (s.tool === pass) paint(ctx, s, sel.paper)
         }
         ctx.restore()
       }, false)
@@ -285,6 +286,12 @@ function drawCursor(ctx: CanvasRenderingContext2D, x: number, y: number, name: s
   ctx.fill()
   ctx.fillStyle = '#ffffff'
   ctx.fillText(label, lx + 6, ly + 10.5)
+}
+
+/** Un trazo confirmado: tinta, o un objeto (texto, fórmula, ejes…). */
+function paint(ctx: CanvasRenderingContext2D, s: Stroke, paper: string) {
+  if (s.item) drawItem(ctx, s, paper)
+  else fillStroke(ctx, s, strokePath(s), paper)
 }
 
 function fillStroke(ctx: CanvasRenderingContext2D, s: { color: string; opacity: number }, path: Path2D, paper: string) {

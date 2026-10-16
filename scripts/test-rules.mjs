@@ -145,6 +145,10 @@ await test('y agrega páginas, pero no toca el título', async () => {
   await ok(b.commit(), 'agregar página')
   await denied(updateDoc(doc(alumno.db, 'rooms', 'ABC234'), { title: 'Mía' }), 'cambiar el título')
 })
+await test('un objeto (texto o fórmula) se guarda como un trazo más', () =>
+  ok(setDoc(strokeDoc(alumno, 'txt1'), stroke(alumno.uid, { item: { kind: 'text', text: 'Hola' } })), 'texto'),
+)
+await test('pero el objeto tiene que ser un mapa', () => denied(setDoc(strokeDoc(alumno, 'txt2'), stroke(alumno.uid, { item: 'cualquier cosa' })), 'objeto inválido'))
 await test('un trazo no puede figurar como de otra persona', () => denied(setDoc(strokeDoc(alumno, 's2'), stroke(profe.uid)), 'firmar como otro'))
 await test('un lote grande de trazos (300) entra de una vez', async () => {
   const b = writeBatch(alumno.db)

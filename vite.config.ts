@@ -12,6 +12,8 @@ const base = process.env.BASE_PATH || '/'
 
 export default defineConfig(({ mode }) => ({
   base,
+  // MathJax (fórmulas) usa «global», de Node
+  define: { global: 'globalThis' },
   plugins: [
     react(),
     mode === 'lan' && basicSsl({ name: 'pizarra-lan' }),
@@ -50,6 +52,7 @@ export default defineConfig(({ mode }) => ({
   ],
   server: { host: mode === 'lan' ? true : undefined },
   // El SDK de Firestore solo ya pesa ~540 kB (se carga después del login); jsPDF, al exportar
-  build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 650 },
+  // MathJax (~1,6 MB) se carga recién con la primera fórmula
+  build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 1700 },
   test: { environment: 'node', include: ['src/**/*.test.ts'] },
 }))

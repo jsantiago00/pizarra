@@ -321,5 +321,5 @@ async function purgePage(code: string, pageId: string) {
 
 /** Lo que identifica el contenido de un trazo (para reconocer el eco de lo propio). */
 function signature(s: Stroke): string {
-  return `${s.z}|${s.pts.length}|${s.color}|${s.size.toFixed(2)}|${s.bbox.map((v) => Math.round(v)).join(',')}`
+  return `${s.z}|${s.pts.length}|${s.color}|${s.size.toFixed(2)}|${s.bbox.map((v) => Math.round(v)).join(',')}${s.item ? `|${JSON.stringify(s.item)}` : ''}`
 }
